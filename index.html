@@ -338,6 +338,17 @@ label { display: block; color: var(--muted); font-size: 11px; margin: 12px 0 4px
 }
 .sound-btn:active { background: var(--gold); color: var(--bg); }
 
+audio {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--bg-soft);
+  margin-top: 4px;
+}
+audio::-webkit-media-controls-panel {
+  background: var(--bg-soft);
+}
+
 /* Birdiebook scorecard table */
 .scorecard {
   width: 100%;
@@ -611,8 +622,8 @@ footer {
     <div class="row"><span class="lbl">Total Trip</span><span class="val" id="beerTotal">0 🍺</span></div>
     <div class="row"><span class="lbl">Tagesbestmarke</span><span class="val" id="beerRecord">0</span></div>
     <div class="row"><span class="lbl">Promille (geschätzt)</span><span class="val" id="promilleVal">0.00 ‰</span></div>
-    <div class="meter"><div class="meter-fill" id="promilleBar" style="width:0%; background: var(--green-good);"></div></div>
-    <p class="small" id="promilleStatus" style="margin-top:6px;">🟢 Auslosungsberechtigt</p>
+    <div class="meter"><div class="meter-fill" id="promilleBar" style="width:0%; background: var(--muted);"></div></div>
+    <p class="small" id="promilleStatus" style="margin-top:6px;">🔵 Noch nicht qualifiziert · 0.70‰ fehlen bis zur Auslosungs-Berechtigung</p>
     <label>Dein Gewicht (kg)</label>
     <input type="number" id="weightInput" placeholder="80">
     <p class="small" style="margin-top:6px;">Widmark-Schätzung. Realität kann abweichen 😅</p>
@@ -667,14 +678,14 @@ footer {
     <p id="oracleResult" style="margin-top:14px; font-style:italic; color: var(--gold);"></p>
   </div>
 
-  <h3>📣 Soundboard</h3>
-  <div class="sound-grid">
-    <button class="sound-btn" onclick="playSound('fore')">FORE! 📢</button>
-    <button class="sound-btn" onclick="playSound('cheer')">JAAA! 🎉</button>
-    <button class="sound-btn" onclick="playSound('boo')">BUH 👎</button>
-    <button class="sound-btn" onclick="playSound('gong')">GONG 🔔</button>
-    <button class="sound-btn" onclick="playSound('drumroll')">Trommelwirbel 🥁</button>
-    <button class="sound-btn" onclick="playSound('coin')">Münze 🪙</button>
+  <h3>🎵 Tschopp Trophy Hymne</h3>
+  <div class="card">
+    <p style="font-size:14px; margin:0 0 12px;">Der inoffizielle Soundtrack für jede Runde 🏆</p>
+    <audio controls preload="metadata" style="width:100%;">
+      <source src="tt_song.mp3" type="audio/mpeg">
+      Dein Browser unterstützt kein Audio.
+    </audio>
+    <p class="small" style="margin-top:10px;">Tipp: Funktioniert auch im Hintergrund während du andere Tabs durchklickst.</p>
   </div>
 </section>
 
@@ -1235,17 +1246,18 @@ function updatePromille() {
   const status = document.getElementById('promilleStatus');
   bar.style.width = Math.min(100, (bac/2.0)*100) + '%';
   if (bac < 0.7) {
-    bar.style.background = 'var(--green-good)';
-    status.textContent = '🟢 Auslosungsberechtigt (unter 0.7‰)';
-    status.style.color = 'var(--green-good)';
+    bar.style.background = 'var(--muted)';
+    const fehlt = (0.7 - bac).toFixed(2);
+    status.textContent = '🔵 Noch nicht qualifiziert · ' + fehlt + '‰ fehlen bis zur Auslosungs-Berechtigung';
+    status.style.color = 'var(--muted)';
   } else if (bac < 1.5) {
-    bar.style.background = 'var(--gold)';
-    status.textContent = '🟡 Über Auslosungsgrenze';
-    status.style.color = 'var(--gold)';
+    bar.style.background = 'var(--green-good)';
+    status.textContent = '🟢 Auslosungsberechtigt (über 0.7‰) ✓';
+    status.style.color = 'var(--green-good)';
   } else {
-    bar.style.background = 'var(--red-bad)';
-    status.textContent = '🔴 Wasser. Jetzt.';
-    status.style.color = 'var(--red-bad)';
+    bar.style.background = 'var(--gold)';
+    status.textContent = '🟡 Berechtigt — aber langsam wirds steil';
+    status.style.color = 'var(--gold)';
   }
 }
 
