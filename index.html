@@ -640,10 +640,16 @@ footer {
       <div class="stat-num" id="statTotalBalls">0</div>
       <div class="stat-lbl">Bälle weg</div>
     </div>
+    <div class="stat-tile" style="grid-column: span 2;">
+      <div class="stat-icon">🐥</div>
+      <div class="stat-num" id="statTotalBirdies">0</div>
+      <div class="stat-lbl">Birdies total</div>
+    </div>
   </div>
   <div class="card" style="margin-top:8px;">
     <div class="row"><span class="lbl">🍺 Top-Trinker</span><span class="val" id="statTopBeer">–</span></div>
     <div class="row"><span class="lbl">🌊 Atlantik-Spender</span><span class="val" id="statTopBalls">–</span></div>
+    <div class="row"><span class="lbl">🐥 Top Birdie-Jäger</span><span class="val" id="statTopBirdies">–</span></div>
   </div>
   <p class="small" style="margin: -4px 0 14px; text-align: center;">Aggregiert über alle 15 Spieler · aktualisiert sich live</p>
 
@@ -902,6 +908,19 @@ footer {
     </select>
     <p class="small" id="ballEstimate" style="margin-top:10px;">Hochrechnung erscheint ab 1 verlorenem Ball.</p>
   </div>
+
+  <h3>🐥 Birdies</h3>
+  <div class="counter">
+    <div>
+      <div class="counter-value" id="birdiesCount">0</div>
+      <div class="counter-label">Birdies Trip</div>
+    </div>
+    <div class="counter-controls">
+      <button class="counter-btn minus" onclick="adjust('birdies', -1)">−</button>
+      <button class="counter-btn" onclick="adjust('birdies', 1)">+</button>
+    </div>
+  </div>
+  <p class="small" style="margin-top:6px;">Jedes Loch unter Par = 1 Tipp auf Plus.</p>
 
   <h3>🎯 Spezialwertungen</h3>
   <div class="card">
@@ -1721,6 +1740,12 @@ function adjust(type, delta) {
       toast('🏌️ Schade, ' + count + ' Bälle weg' + (reason ? ' · ' + reason : ''));
       document.getElementById('lossReason').value = '';
     }
+  } else if (type === 'birdies') {
+    let count = parseInt(loadField('birdies_total','0'),10) + delta;
+    count = Math.max(0, count);
+    saveField('birdies_total', count.toString());
+    updateBirdies();
+    if (delta > 0) toast('🐥 Birdie! Total: ' + count);
   }
 }
 
@@ -1800,12 +1825,21 @@ function updateBalls() {
   updateTripStats();
 }
 
+function updateBirdies() {
+  const total = parseInt(loadField('birdies_total','0'),10);
+  const el = document.getElementById('birdiesCount');
+  if (el) el.textContent = total;
+  updateTripStats();
+}
+
 // === TRIP STATS (alle Spieler aggregiert) ===
 function updateTripStats() {
   let totalBeer = 0;
   let totalBalls = 0;
+  let totalBirdies = 0;
   let topBeerPlayer = null, topBeerCount = 0;
   let topBallsPlayer = null, topBallsCount = 0;
+  let topBirdiesPlayer = null, topBirdiesCount = 0;
 
   PLAYERS.forEach(p => {
     // Bier: alle Tage summieren
@@ -1831,16 +1865,29 @@ function updateTripStats() {
       topBallsCount = balls;
       topBallsPlayer = p;
     }
+
+    // Birdies
+    const birdiesKey = 'tt2026__' + p.key + '__birdies_total';
+    const birdies = parseInt(localStorage.getItem(birdiesKey), 10) || 0;
+    totalBirdies += birdies;
+    if (birdies > topBirdiesCount) {
+      topBirdiesCount = birdies;
+      topBirdiesPlayer = p;
+    }
   });
 
   const beerEl = document.getElementById('statTotalBeer');
   const ballsEl = document.getElementById('statTotalBalls');
+  const birdiesEl = document.getElementById('statTotalBirdies');
   const topBeerEl = document.getElementById('statTopBeer');
   const topBallsEl = document.getElementById('statTopBalls');
+  const topBirdiesEl = document.getElementById('statTopBirdies');
   if (beerEl) beerEl.textContent = totalBeer;
   if (ballsEl) ballsEl.textContent = totalBalls;
+  if (birdiesEl) birdiesEl.textContent = totalBirdies;
   if (topBeerEl) topBeerEl.textContent = topBeerPlayer ? topBeerPlayer.name + ' · ' + topBeerCount : '–';
   if (topBallsEl) topBallsEl.textContent = topBallsPlayer ? topBallsPlayer.name + ' · ' + topBallsCount : '–';
+  if (topBirdiesEl) topBirdiesEl.textContent = topBirdiesPlayer ? topBirdiesPlayer.name + ' · ' + topBirdiesCount : '–';
 }
 
 function loadTrackers() {
@@ -1851,6 +1898,7 @@ function loadTrackers() {
   document.getElementById('weightInput').value = loadField('weight','');
   updateBeer();
   updateBalls();
+  updateBirdies();
 }
 
 function attachTrackerListeners() {
