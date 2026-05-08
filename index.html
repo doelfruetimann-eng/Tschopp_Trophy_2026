@@ -349,6 +349,167 @@ audio::-webkit-media-controls-panel {
   background: var(--bg-soft);
 }
 
+/* Bag */
+.club-cat-title {
+  color: var(--gold-soft);
+  font-size: 13px; font-weight: 700;
+  margin: 14px 0 6px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.club-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.club-row.in-bag {
+  background: rgba(212,177,74,0.12);
+  border-color: var(--gold);
+}
+.club-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+.club-row.in-bag .club-icon { background: var(--gold); color: var(--bg); }
+.club-name { flex: 1; font-weight: 600; font-size: 14px; }
+.club-loft { color: var(--muted); font-size: 11px; }
+.club-dist {
+  display: flex; gap: 6px; align-items: center;
+  font-size: 12px;
+}
+.club-dist input {
+  width: 50px; padding: 4px 6px;
+  font-size: 12px; text-align: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text);
+}
+.club-dist input:focus { outline: 1px solid var(--gold); }
+.club-row:not(.in-bag) .club-dist { opacity: 0.5; }
+
+.gap-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.gap-row + .gap-row { border-top: 1px solid rgba(255,255,255,0.05); }
+
+/* Trophy-Teams */
+.trophy-team-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+.trophy-team-card.team-red { border-left: 4px solid #c5634d; }
+.trophy-team-card.team-blue { border-left: 4px solid #4a90c2; }
+.trophy-team-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.trophy-team-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  display: inline-block;
+}
+.dot-red { background: #c5634d; }
+.dot-blue { background: #4a90c2; }
+.trophy-team-name {
+  font-family: Georgia, serif;
+  font-size: 16px; font-weight: 700;
+  color: var(--gold); flex: 1;
+}
+.trophy-team-count {
+  font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.trophy-team-members {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  min-height: 28px;
+  align-items: center;
+}
+.team-member-pill {
+  background: var(--bg-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.team-member-pill.red { background: rgba(197,99,77,0.2); border-color: #c5634d; color: #f4a18d; }
+.team-member-pill.blue { background: rgba(74,144,194,0.2); border-color: #4a90c2; color: #92c4e6; }
+
+.assign-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.assign-row:last-child { border-bottom: none; }
+.assign-name {
+  flex: 1; font-size: 14px; font-weight: 500;
+}
+.assign-buttons { display: flex; gap: 6px; }
+.assign-btn {
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  border: 1px solid; cursor: pointer;
+  font-family: inherit;
+  background: transparent;
+}
+.assign-btn.btn-red { color: #c5634d; border-color: #c5634d; }
+.assign-btn.btn-red.active { background: #c5634d; color: var(--bg); }
+.assign-btn.btn-blue { color: #4a90c2; border-color: #4a90c2; }
+.assign-btn.btn-blue.active { background: #4a90c2; color: var(--bg); }
+
+/* Trip Stats Tiles */
+.trip-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+}
+.stat-icon { font-size: 24px; line-height: 1; margin-bottom: 4px; }
+.stat-num {
+  font-family: Georgia, serif;
+  font-size: 28px;
+  color: var(--gold);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.stat-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+.gap-warn { color: var(--red-bad); font-weight: 700; }
+.gap-ok { color: var(--green-good); }
+
+.suggestion-card {
+  background: var(--bg-soft);
+  border-left: 3px solid var(--gold);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.suggestion-card .sug-name { color: var(--gold); font-weight: 700; }
+
 /* Birdiebook scorecard table */
 .scorecard {
   width: 100%;
@@ -447,6 +608,7 @@ footer {
   <button class="tab" data-tab="courses">Plätze</button>
   <button class="tab" data-tab="players">Spieler</button>
   <button class="tab" data-tab="teams">Teams</button>
+  <button class="tab" data-tab="equipment">Bag</button>
   <button class="tab" data-tab="trackers">Tracker</button>
   <button class="tab" data-tab="bingo">Spass</button>
   <button class="tab" data-tab="pack">Packen</button>
@@ -464,6 +626,32 @@ footer {
     <div class="row"><span class="lbl">OK</span><span class="val">Consti & Flo</span></div>
     <div class="row"><span class="lbl">Hauptfeld-Leitung</span><span class="val">Patrick Debrunner</span></div>
     <div class="row"><span class="lbl">Teilnehmer</span><span class="val">15 · ⌀ HCP 16.0</span></div>
+  </div>
+
+  <h3>📊 Live Trip Stats</h3>
+  <div class="trip-stats-grid">
+    <div class="stat-tile">
+      <div class="stat-icon">🍺</div>
+      <div class="stat-num" id="statTotalBeer">0</div>
+      <div class="stat-lbl">Bier total</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon">🏌️</div>
+      <div class="stat-num" id="statTotalBalls">0</div>
+      <div class="stat-lbl">Bälle weg</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:8px;">
+    <div class="row"><span class="lbl">🍺 Top-Trinker</span><span class="val" id="statTopBeer">–</span></div>
+    <div class="row"><span class="lbl">🌊 Atlantik-Spender</span><span class="val" id="statTopBalls">–</span></div>
+  </div>
+  <p class="small" style="margin: -4px 0 14px; text-align: center;">Aggregiert über alle 15 Spieler · aktualisiert sich live</p>
+
+  <h3>💸 Trip-Kasse</h3>
+  <div class="card">
+    <p style="font-size:14px; margin:0 0 12px;">Spesen, Runden, Trinkgelder — alles über die gemeinsame Splitwise-Gruppe.</p>
+    <a href="https://www.splitwise.com/join/V1DQY79nXtt+29f6c?v=e" target="_blank" class="btn" style="display:block; text-align:center;">💸 Splitwise öffnen</a>
+    <p class="small" style="margin-top:10px;">Falls die Splitwise-App installiert ist, öffnet sie sich direkt. Sonst im Browser. Falls du noch nicht in der Gruppe bist, fügt dich der Link automatisch hinzu.</p>
   </div>
 
   <h3>🪁 Team Kite & Golf · Hin 09.05. / Rück 18.05.</h3>
@@ -581,13 +769,46 @@ footer {
 
 <section id="teams">
   <h2>Tagesteams</h2>
+
+  <h3>🏆 Trophy-Teams</h3>
+  <p class="small">Spielerzuweisung für die Singles-Wertung am Finaltag · vom OK pflegbar</p>
+  
+  <div class="trophy-team-card team-red">
+    <div class="trophy-team-header">
+      <span class="trophy-team-dot dot-red"></span>
+      <span class="trophy-team-name">Team Parli</span>
+      <span class="trophy-team-count" id="countRed">0 Spieler</span>
+    </div>
+    <div class="trophy-team-members" id="membersRed">
+      <span class="small" style="color:var(--muted);">Noch niemand zugewiesen</span>
+    </div>
+  </div>
+
+  <div class="trophy-team-card team-blue">
+    <div class="trophy-team-header">
+      <span class="trophy-team-dot dot-blue"></span>
+      <span class="trophy-team-name">Team Consti</span>
+      <span class="trophy-team-count" id="countBlue">0 Spieler</span>
+    </div>
+    <div class="trophy-team-members" id="membersBlue">
+      <span class="small" style="color:var(--muted);">Noch niemand zugewiesen</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:10px;">
+    <p class="small" style="margin:0 0 10px;">Tippe auf einen Spieler, um ihn dem Team zuzuweisen. Nochmal tippen entfernt ihn wieder.</p>
+    <div id="teamAssignList"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <h3>📅 Tagesauslosungen</h3>
   <p class="small">Vom OK eingetragen sobald die Auslosung am Abend stattgefunden hat.</p>
   <div id="teamsContent"></div>
 
-  <div class="divider"></div>
-  <h3>🔧 OK-Modus: Teams eingeben</h3>
-  <p class="small">Hier kannst du nach der Abend-Auslosung die Teams für den nächsten Tag eintragen. Format pro Zeile: <i>Teamname: Spieler1, Spieler2, …</i></p>
-  <div class="card">
+  <div class="card" style="margin-top:10px;">
+    <h3 style="margin-top:0;">🔧 OK-Modus: Tages-Teams</h3>
+    <p class="small" style="margin-bottom:10px;">Format pro Zeile: <i>Teamname: Spieler1, Spieler2, …</i></p>
     <label>Tag wählen</label>
     <select id="teamDaySelect">
       <option value="2026-05-14">Do 14.05. · Praia D'El Rey · Fourball</option>
@@ -596,11 +817,39 @@ footer {
       <option value="2026-05-17">So 17.05. · West Cliffs · Fourball</option>
       <option value="2026-05-18">Mo 18.05. · Praia D'El Rey · Singles 🏆</option>
     </select>
-    <label>Teams (eine pro Zeile, Format: Name: Spieler1, Spieler2)</label>
-    <textarea id="teamInput" rows="6" placeholder="Flight 1: Schrafl, Pulfer, Wieser&#10;Flight 2: Parli, Hunter, Rütimann&#10;…"></textarea>
-    <button class="btn" style="margin-top:10px;" onclick="saveTeams()">Teams speichern</button>
-    <p class="small" style="margin-top:8px;">Wird lokal gespeichert. Bei Änderung der Datei verteilen die Jungs sich neu — dann müssen die Teams einmal neu eingetragen werden.</p>
+    <label>Teams (eine pro Zeile)</label>
+    <textarea id="teamInput" rows="5" placeholder="Flight 1: Schrafl, Pulfer, Wieser&#10;Flight 2: Parli, Hunter, Rütimann&#10;…"></textarea>
+    <button class="btn" style="margin-top:10px;" onclick="saveTeams()">Speichern</button>
   </div>
+</section>
+
+<section id="equipment">
+  <h2>Mein Bag</h2>
+  <p class="small">Pro Spieler-Profil eigene Auswahl · Max. 14 Schläger · Schlagweiten editierbar</p>
+
+  <div class="card" id="bagSummary">
+    <div class="row"><span class="lbl">Schläger im Bag</span><span class="val" id="bagCount">0 / 14</span></div>
+    <div class="row"><span class="lbl">Längster Carry</span><span class="val" id="bagMax">–</span></div>
+    <div class="row"><span class="lbl">Kürzester Carry</span><span class="val" id="bagMin">–</span></div>
+    <div class="row"><span class="lbl">Gapping</span><span class="val" id="bagGapping">–</span></div>
+  </div>
+
+  <h3>🎯 Schlägerwahl</h3>
+  <div class="card">
+    <label>Wie weit brauchst du? (Meter)</label>
+    <input type="number" id="targetDist" placeholder="z.B. 145" oninput="updateClubSuggestion()">
+    <div id="clubSuggestion" style="margin-top:10px;"></div>
+  </div>
+
+  <h3>📏 Gapping-Check</h3>
+  <div class="card">
+    <p class="small" style="margin:0 0 10px;">Lücken über 18m carry zwischen aufeinanderfolgenden Schlägern werden markiert.</p>
+    <div id="gappingList"></div>
+  </div>
+
+  <h3>🏌️ Schlägerauswahl</h3>
+  <p class="small">Tippe einen Schläger an, um ihn zum Bag hinzuzufügen / entfernen. Carry/Total sind editierbar.</p>
+  <div id="clubsList"></div>
 </section>
 
 <section id="trackers">
@@ -686,6 +935,15 @@ footer {
       Dein Browser unterstützt kein Audio.
     </audio>
     <p class="small" style="margin-top:10px;">Tipp: Funktioniert auch im Hintergrund während du andere Tabs durchklickst.</p>
+  </div>
+
+  <h3>🏆 UEFA Champions League Anthem</h3>
+  <div class="card">
+    <p style="font-size:14px; margin:0 0 12px;">Für den ganz großen Auftritt am ersten Tee 🎺</p>
+    <audio controls preload="metadata" style="width:100%;">
+      <source src="uefa_anthem.m4a" type="audio/mp4">
+      Dein Browser unterstützt kein Audio.
+    </audio>
   </div>
 </section>
 
@@ -881,6 +1139,34 @@ const SCHEDULE = {
   '2026-05-17': { course: 'westcliffs',  format: 'Fourball (total score)' },
   '2026-05-18': { course: 'praiadelrey', format: 'Singles 🏆' },
 };
+
+// === BAG / CLUB DATA ===
+const ALL_CLUBS = [
+  { id: 'driver', cat: 'Hölzer', icon: '🪵', type: 'Driver',    loft: '10.5°', carry: 210, total: 230 },
+  { id: 'h3',     cat: 'Hölzer', icon: '🪵', type: 'Holz 3',    loft: '15°',   carry: 190, total: 205 },
+  { id: 'h5',     cat: 'Hölzer', icon: '🪵', type: 'Holz 5',    loft: '18°',   carry: 180, total: 194 },
+  { id: 'h7',     cat: 'Hölzer', icon: '🪵', type: 'Holz 7',    loft: '21°',   carry: 170, total: 183 },
+  { id: 'hyb3',   cat: 'Hybrid', icon: '🔀', type: 'Hybrid 3',  loft: '19°',   carry: 183, total: 196 },
+  { id: 'hyb4',   cat: 'Hybrid', icon: '🔀', type: 'Hybrid 4',  loft: '22°',   carry: 175, total: 188 },
+  { id: 'hyb5',   cat: 'Hybrid', icon: '🔀', type: 'Hybrid 5',  loft: '25°',   carry: 165, total: 177 },
+  { id: 'e3',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 3',   loft: '22°',   carry: 170, total: 182 },
+  { id: 'e4',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 4',   loft: '25°',   carry: 163, total: 174 },
+  { id: 'e5',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 5',   loft: '28°',   carry: 155, total: 165 },
+  { id: 'e6',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 6',   loft: '31°',   carry: 145, total: 154 },
+  { id: 'e7',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 7',   loft: '34°',   carry: 137, total: 145 },
+  { id: 'e8',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 8',   loft: '38°',   carry: 126, total: 133 },
+  { id: 'e9',     cat: 'Eisen',  icon: '⛏️', type: 'Eisen 9',   loft: '42°',   carry: 115, total: 121 },
+  { id: 'pw',     cat: 'Wedges', icon: '🎯', type: 'PW 48°',    loft: '48°',   carry: 105, total: 110 },
+  { id: 'gw50',   cat: 'Wedges', icon: '🎯', type: 'GW 50°',    loft: '50°',   carry:  95, total:  99 },
+  { id: 'gw52',   cat: 'Wedges', icon: '🎯', type: 'GW 52°',    loft: '52°',   carry:  88, total:  92 },
+  { id: 'sw54',   cat: 'Wedges', icon: '🎯', type: 'SW 54°',    loft: '54°',   carry:  80, total:  83 },
+  { id: 'sw56',   cat: 'Wedges', icon: '🎯', type: 'SW 56°',    loft: '56°',   carry:  72, total:  75 },
+  { id: 'lw58',   cat: 'Wedges', icon: '🎯', type: 'LW 58°',    loft: '58°',   carry:  62, total:  64 },
+  { id: 'lw60',   cat: 'Wedges', icon: '🎯', type: 'LW 60°',    loft: '60°',   carry:  52, total:  54 },
+  { id: 'putter', cat: 'Putter', icon: '🏌️', type: 'Putter',    loft: '3°',    carry:   0, total:   0 },
+];
+
+const DEFAULT_BAG = ['driver','h3','hyb4','e5','e6','e7','e8','e9','pw','gw50','sw54','lw58','putter'];
 
 const PACK = {
   '📄 Dokumente & Reise': ['ID/Reisepass','Boardingpass','Kreditkarte + EUR Bar','Führerschein','Krankenkassen-Karte','Sonnenbrille','Cap/Hut','AirPods','Powerbank','Ladegeräte','Adapter (CH→EU)'],
@@ -1110,6 +1396,169 @@ function checkBingo() {
   }
 }
 
+// === BAG ===
+function getBag() {
+  const raw = loadField('bag', '');
+  if (!raw) return DEFAULT_BAG.slice();
+  return raw.split(',').filter(Boolean);
+}
+function saveBag(bag) {
+  saveField('bag', bag.join(','));
+}
+function getCustomDist(clubId, field) {
+  const v = loadField('club_' + clubId + '_' + field, '');
+  if (v === '') {
+    const club = ALL_CLUBS.find(c => c.id === clubId);
+    return club ? club[field] : 0;
+  }
+  return parseInt(v, 10) || 0;
+}
+function setCustomDist(clubId, field, val) {
+  saveField('club_' + clubId + '_' + field, val);
+}
+
+function toggleClub(clubId) {
+  let bag = getBag();
+  if (bag.indexOf(clubId) >= 0) {
+    bag = bag.filter(c => c !== clubId);
+    toast('Schläger entfernt');
+  } else {
+    if (bag.length >= 14) {
+      toast('⚠️ Bag voll (14/14)');
+      return;
+    }
+    bag.push(clubId);
+    toast('Schläger hinzugefügt');
+  }
+  saveBag(bag);
+  renderBag();
+}
+
+function renderBag() {
+  const bag = getBag();
+  const inBag = ALL_CLUBS.filter(c => bag.indexOf(c.id) >= 0);
+  const distClubs = inBag
+    .filter(c => c.id !== 'putter')
+    .map(c => ({ ...c, carry: getCustomDist(c.id, 'carry'), total: getCustomDist(c.id, 'total') }))
+    .sort((a, b) => b.carry - a.carry);
+
+  // Summary
+  document.getElementById('bagCount').textContent = bag.length + ' / 14';
+  if (distClubs.length > 0) {
+    document.getElementById('bagMax').textContent = distClubs[0].type + ' · ' + distClubs[0].carry + 'm';
+    document.getElementById('bagMin').textContent = distClubs[distClubs.length - 1].type + ' · ' + distClubs[distClubs.length - 1].carry + 'm';
+  } else {
+    document.getElementById('bagMax').textContent = '–';
+    document.getElementById('bagMin').textContent = '–';
+  }
+
+  // Gapping
+  const gaps = [];
+  for (let i = 0; i < distClubs.length - 1; i++) {
+    gaps.push({
+      from: distClubs[i + 1].type,
+      to: distClubs[i].type,
+      gap: distClubs[i].carry - distClubs[i + 1].carry,
+    });
+  }
+  const bigGaps = gaps.filter(g => g.gap > 18);
+  document.getElementById('bagGapping').innerHTML = bigGaps.length === 0
+    ? '<span class="gap-ok">✓ Sauber</span>'
+    : '<span class="gap-warn">⚠️ ' + bigGaps.length + ' Lücke' + (bigGaps.length > 1 ? 'n' : '') + '</span>';
+
+  // Gapping-Liste
+  const gapList = document.getElementById('gappingList');
+  if (gaps.length === 0) {
+    gapList.innerHTML = '<p class="small">Mindestens 2 Schläger benötigt.</p>';
+  } else {
+    gapList.innerHTML = gaps.map(g => {
+      const cls = g.gap > 18 ? 'gap-warn' : 'gap-ok';
+      const icon = g.gap > 18 ? '⚠️' : '✓';
+      return '<div class="gap-row"><span>' + g.from + ' → ' + g.to + '</span><span class="' + cls + '">' + icon + ' ' + g.gap + 'm</span></div>';
+    }).join('');
+  }
+
+  // Schläger-Liste nach Kategorie
+  const cats = ['Hölzer', 'Hybrid', 'Eisen', 'Wedges', 'Putter'];
+  const wrap = document.getElementById('clubsList');
+  wrap.innerHTML = '';
+  cats.forEach(cat => {
+    const inCat = ALL_CLUBS.filter(c => c.cat === cat);
+    if (inCat.length === 0) return;
+    const title = document.createElement('div');
+    title.className = 'club-cat-title';
+    title.textContent = cat;
+    wrap.appendChild(title);
+    inCat.forEach(c => {
+      const isInBag = bag.indexOf(c.id) >= 0;
+      const carry = getCustomDist(c.id, 'carry');
+      const total = getCustomDist(c.id, 'total');
+      const row = document.createElement('div');
+      row.className = 'club-row' + (isInBag ? ' in-bag' : '');
+      const isPutter = c.id === 'putter';
+      row.innerHTML =
+        '<div class="club-icon">' + (isInBag ? '✓' : c.icon) + '</div>' +
+        '<div style="flex:1;">' +
+          '<div class="club-name">' + c.type + '</div>' +
+          '<div class="club-loft">' + c.loft + '</div>' +
+        '</div>' +
+        (isPutter ? '<div class="club-dist"><span class="small">–</span></div>' :
+        '<div class="club-dist" onclick="event.stopPropagation();">' +
+          '<span class="small">C</span><input type="number" data-club="' + c.id + '" data-field="carry" value="' + carry + '">' +
+          '<span class="small">T</span><input type="number" data-club="' + c.id + '" data-field="total" value="' + total + '">' +
+        '</div>');
+      row.addEventListener('click', () => toggleClub(c.id));
+      wrap.appendChild(row);
+    });
+  });
+
+  // Listen für Distanz-Inputs
+  wrap.querySelectorAll('input[data-club]').forEach(input => {
+    input.addEventListener('input', e => {
+      const clubId = e.target.dataset.club;
+      const field = e.target.dataset.field;
+      setCustomDist(clubId, field, e.target.value);
+    });
+    input.addEventListener('change', () => {
+      renderBag(); // re-render für gapping update
+      updateClubSuggestion();
+    });
+  });
+
+  updateClubSuggestion();
+}
+
+function updateClubSuggestion() {
+  const targetEl = document.getElementById('targetDist');
+  const sugEl = document.getElementById('clubSuggestion');
+  if (!targetEl || !sugEl) return;
+  const target = parseInt(targetEl.value, 10);
+  if (isNaN(target) || target <= 0) {
+    sugEl.innerHTML = '<p class="small" style="margin:0;">Trag eine Distanz ein für Empfehlung.</p>';
+    return;
+  }
+  const bag = getBag();
+  const candidates = ALL_CLUBS
+    .filter(c => bag.indexOf(c.id) >= 0 && c.id !== 'putter')
+    .map(c => ({
+      ...c,
+      carry: getCustomDist(c.id, 'carry'),
+      total: getCustomDist(c.id, 'total'),
+    }))
+    .map(c => ({ ...c, diff: Math.min(Math.abs(c.carry - target), Math.abs(c.total - target)) }))
+    .sort((a, b) => a.diff - b.diff)
+    .slice(0, 3);
+
+  if (candidates.length === 0) {
+    sugEl.innerHTML = '<p class="small">Keine Schläger im Bag.</p>';
+    return;
+  }
+  sugEl.innerHTML = candidates.map((c, i) => {
+    const medal = ['🥇', '🥈', '🥉'][i] || '';
+    return '<div class="suggestion-card">' + medal + ' <span class="sug-name">' + c.type + '</span> · Carry ' + c.carry + 'm / Total ' + c.total + 'm <span class="small">(±' + c.diff + 'm)</span></div>';
+  }).join('');
+}
+
 // === TEAMS ===
 function renderTeams() {
   const wrap = document.getElementById('teamsContent');
@@ -1162,6 +1611,72 @@ function saveTeams() {
 function loadTeamInput() {
   const date = document.getElementById('teamDaySelect').value;
   document.getElementById('teamInput').value = loadShared('teams_' + date, '');
+}
+
+// === TROPHY TEAMS (Parli rot, Consti blau) ===
+function getPlayerTeam(playerKey) {
+  return loadShared('trophyteam_' + playerKey, '');
+}
+function setPlayerTeam(playerKey, team) {
+  saveShared('trophyteam_' + playerKey, team);
+}
+
+function assignTeam(playerKey, team) {
+  const current = getPlayerTeam(playerKey);
+  if (current === team) {
+    setPlayerTeam(playerKey, ''); // toggle off
+  } else {
+    setPlayerTeam(playerKey, team);
+  }
+  renderTrophyTeams();
+}
+
+function renderTrophyTeams() {
+  const redMembers = [];
+  const blueMembers = [];
+  PLAYERS.forEach(p => {
+    const t = getPlayerTeam(p.key);
+    if (t === 'red') redMembers.push(p);
+    else if (t === 'blue') blueMembers.push(p);
+  });
+
+  // Members rendering
+  const redEl = document.getElementById('membersRed');
+  const blueEl = document.getElementById('membersBlue');
+  if (redMembers.length === 0) {
+    redEl.innerHTML = '<span class="small" style="color:var(--muted);">Noch niemand zugewiesen</span>';
+  } else {
+    redEl.innerHTML = redMembers.map(p => '<span class="team-member-pill red">' + p.name + '</span>').join('');
+  }
+  if (blueMembers.length === 0) {
+    blueEl.innerHTML = '<span class="small" style="color:var(--muted);">Noch niemand zugewiesen</span>';
+  } else {
+    blueEl.innerHTML = blueMembers.map(p => '<span class="team-member-pill blue">' + p.name + '</span>').join('');
+  }
+  document.getElementById('countRed').textContent = redMembers.length + ' Spieler';
+  document.getElementById('countBlue').textContent = blueMembers.length + ' Spieler';
+
+  // Assignment list
+  const list = document.getElementById('teamAssignList');
+  list.innerHTML = '';
+  PLAYERS.forEach(p => {
+    const current = getPlayerTeam(p.key);
+    const row = document.createElement('div');
+    row.className = 'assign-row';
+    row.innerHTML =
+      '<div class="assign-name">' + p.name + ' <span class="small">· HCP ' + p.hcp + '</span></div>' +
+      '<div class="assign-buttons">' +
+        '<button class="assign-btn btn-red' + (current === 'red' ? ' active' : '') + '" data-player="' + p.key + '" data-team="red">Parli</button>' +
+        '<button class="assign-btn btn-blue' + (current === 'blue' ? ' active' : '') + '" data-player="' + p.key + '" data-team="blue">Consti</button>' +
+      '</div>';
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.assign-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      assignTeam(btn.dataset.player, btn.dataset.team);
+    });
+  });
 }
 
 function updateCountdown() {
@@ -1229,6 +1744,7 @@ function updateBeer() {
   document.getElementById('beerRecord').textContent = record;
   if (total === 100) toast('🥚 EASTER EGG: 100-Bier-Marke! Legende!');
   updatePromille();
+  updateTripStats();
 }
 
 function updatePromille() {
@@ -1281,6 +1797,50 @@ function updateBalls() {
       est.style.color = 'var(--green-good)';
     }
   }
+  updateTripStats();
+}
+
+// === TRIP STATS (alle Spieler aggregiert) ===
+function updateTripStats() {
+  let totalBeer = 0;
+  let totalBalls = 0;
+  let topBeerPlayer = null, topBeerCount = 0;
+  let topBallsPlayer = null, topBallsCount = 0;
+
+  PLAYERS.forEach(p => {
+    // Bier: alle Tage summieren
+    let beerSum = 0;
+    const beerPrefix = 'tt2026__' + p.key + '__beer__';
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(beerPrefix) === 0) {
+        beerSum += parseInt(localStorage.getItem(k), 10) || 0;
+      }
+    }
+    totalBeer += beerSum;
+    if (beerSum > topBeerCount) {
+      topBeerCount = beerSum;
+      topBeerPlayer = p;
+    }
+
+    // Bälle
+    const ballsKey = 'tt2026__' + p.key + '__balls_total';
+    const balls = parseInt(localStorage.getItem(ballsKey), 10) || 0;
+    totalBalls += balls;
+    if (balls > topBallsCount) {
+      topBallsCount = balls;
+      topBallsPlayer = p;
+    }
+  });
+
+  const beerEl = document.getElementById('statTotalBeer');
+  const ballsEl = document.getElementById('statTotalBalls');
+  const topBeerEl = document.getElementById('statTopBeer');
+  const topBallsEl = document.getElementById('statTopBalls');
+  if (beerEl) beerEl.textContent = totalBeer;
+  if (ballsEl) ballsEl.textContent = totalBalls;
+  if (topBeerEl) topBeerEl.textContent = topBeerPlayer ? topBeerPlayer.name + ' · ' + topBeerCount : '–';
+  if (topBallsEl) topBallsEl.textContent = topBallsPlayer ? topBallsPlayer.name + ' · ' + topBallsCount : '–';
 }
 
 function loadTrackers() {
@@ -1472,6 +2032,7 @@ function refreshAll() {
   initPacklist();
   initBingo();
   loadTrackers();
+  renderBag();
 }
 
 function resetData() {
@@ -1491,9 +2052,11 @@ initTabs();
 initPlayerCards();
 initCourses();
 renderTeams();
+renderTrophyTeams();
 loadTeamInput();
 attachTrackerListeners();
 refreshAll();
+updateTripStats();
 updateCountdown();
 setInterval(updateCountdown, 60000);
 loadWeather();
