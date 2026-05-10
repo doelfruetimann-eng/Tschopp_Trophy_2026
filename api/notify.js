@@ -17,13 +17,31 @@ export default async function handler(request) {
 
     let events = [];
     try {
-      // Get all events from the sorted set
-      console.log('Fetching events with zrange(game_events, 0, -1)');
-      events = await kv.zrange('game_events', 0, -1);
-      console.log('zrange result count:', events?.length || 0);
-      console.log('Raw events:', events);
+      // Try different zrange approaches
+      console.log('Trying zrange approaches...');
+
+      // Approach 1: zrange with start/stop
+      let result = await kv.zrange('game_events', 0, -1);
+      console.log('zrange(0, -1):', result?.length || 0);
+
+      // Approach 2: if that didn't work, try zrevrange
+      if (!result || result.length === 0) {
+        console.log('Trying zrevrange...');
+        result = await kv.zrevrange('game_events', 0, -1);
+        console.log('zrevrange result:', result?.length || 0);
+      }
+
+      // Approach 3: try with scores
+      if (!result || result.length === 0) {
+        console.log('Trying zrange with WITHSCORES...');
+        result = await kv.zrange('game_events', 0, -1, { withscores: true });
+        console.log('zrange WITHSCORES:', result?.length || 0);
+      }
+
+      events = result || [];
+      console.log('Final events count:', events.length);
     } catch (kvError) {
-      console.error('KV zrange error:', kvError.message);
+      console.error('KV error:', kvError.message);
       // In local dev, KV might not be available - return empty list
       return new Response(JSON.stringify({ events: [], timestamp: Date.now() }), {
         status: 200,
