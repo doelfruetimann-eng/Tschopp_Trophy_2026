@@ -14,18 +14,32 @@ export default async function handler(request) {
     const sinceParam = request.nextUrl.searchParams.get('since');
     const since = sinceParam ? parseInt(sinceParam, 10) : Date.now() - 5000;
 
-    // Get events from the sorted set (using score as timestamp)
-    const events = await kv.zrangebyscore('game_events', since, Date.now() + 1000);
+    // Get all events from the sorted set
+    const events = await kv.zrange('game_events', 0, -1);
 
+    if (!events || events.length === 0) {
+      return new Response(JSON.stringify({ events: [], timestamp: Date.now() }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // Filter events by timestamp
     const parsedEvents = events
       .map(e => {
         try {
-          return JSON.parse(e);
+          const parsed = JSON.parse(e);
+          return parsed;
         } catch {
           return null;
         }
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter(e => e.timestamp >= since);
 
     return new Response(JSON.stringify({ events: parsedEvents, timestamp: Date.now() }), {
       status: 200,
@@ -36,8 +50,9 @@ export default async function handler(request) {
       },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    console.error('Notify error:', error);
+    return new Response(JSON.stringify({ error: error.message, events: [] }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
