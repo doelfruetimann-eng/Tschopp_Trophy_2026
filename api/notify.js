@@ -11,12 +11,39 @@ export default async function handler(request) {
   }
 
   try {
-    const sinceParam = request.nextUrl.searchParams.get('since');
-    const since = sinceParam ? parseInt(sinceParam, 10) : Date.now() - 5000;
+    const url = new URL(request.url);
+    const sinceParam = url.searchParams.get('since');
+    const since = sinceParam ? parseInt(sinceParam, 10) : Date.now() - 30000;
 
-    // Get events from the sorted set (using score as timestamp)
-    const events = await kv.zrangebyscore('game_events', since, Date.now() + 1000);
+    let events = [];
+    try {
+      // Get all events from the sorted set
+      events = await kv.zrange('game_events', 0, -1);
+    } catch (kvError) {
+      console.warn('KV error (local dev?):', kvError.message);
+      // In local dev, KV might not be available - return empty list
+      return new Response(JSON.stringify({ events: [], timestamp: Date.now() }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
 
+    if (!events || events.length === 0) {
+      return new Response(JSON.stringify({ events: [], timestamp: Date.now() }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // Filter events by timestamp
     const parsedEvents = events
       .map(e => {
         try {
@@ -25,7 +52,8 @@ export default async function handler(request) {
           return null;
         }
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter(e => e.timestamp >= since);
 
     return new Response(JSON.stringify({ events: parsedEvents, timestamp: Date.now() }), {
       status: 200,
@@ -36,8 +64,10 @@ export default async function handler(request) {
       },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    console.error('Notify handler error:', error);
+    // Return empty events on error instead of 500
+    return new Response(JSON.stringify({ events: [], timestamp: Date.now() }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
