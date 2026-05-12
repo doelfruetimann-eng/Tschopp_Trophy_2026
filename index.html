@@ -2792,21 +2792,19 @@ async function pollNotifications() {
       if (notificationQueue.has(eventKey)) continue;
       notificationQueue.add(eventKey);
 
-      const isBirdie = event.field === 'birdies';
-      const isNewEvent = Date.now() - event.timestamp < 60000;
-
-      if (isBirdie && isNewEvent && !soundMuted && event.player !== currentProfile) {
-        console.log('Playing anthem...');
-        setTimeout(() => {
-          anthemAudio.currentTime = 0;
-          document.querySelector('.now-playing-text').textContent = `🎵 ${getPlayerDisplay(event.player)} hat einen Birdie gemacht!`;
-          document.getElementById('nowPlaying').style.display = 'block';
-          anthemAudio.play().catch(err => console.warn('Audio play failed:', err));
-        }, 100);
-      }
-
       const eventExists = eventCache.events.some(e => e.timestamp === event.timestamp && e.player === event.player && e.field === event.field);
       if (!eventExists) {
+        const isBirdie = event.field === 'birdies';
+        const isNewEvent = Date.now() - event.timestamp < 60000;
+
+        if (isBirdie && isNewEvent && !soundMuted && event.player !== currentProfile) {
+          setTimeout(() => {
+            anthemAudio.currentTime = 0;
+            document.querySelector('.now-playing-text').textContent = `🎵 ${getPlayerDisplay(event.player)} hat einen Birdie gemacht!`;
+            document.getElementById('nowPlaying').style.display = 'block';
+            anthemAudio.play().catch(err => console.warn('Audio play failed:', err));
+          }, 100);
+        }
         eventCache.events.push(event);
         eventCache.lastTimestamp = event.timestamp;
         saveEventCache(eventCache);
