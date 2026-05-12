@@ -17,29 +17,24 @@ export default async function handler(request) {
 
     let events = [];
     try {
-      // Try different zrange approaches
-      console.log('Trying zrange approaches...');
+      // Get all events from list (newest first)
+      console.log('Fetching events from game_events_list');
+      const eventStrings = await kv.lrange('game_events_list', 0, -1);
+      console.log('Events found:', eventStrings?.length || 0);
 
-      // Approach 1: zrange with start/stop
-      let result = await kv.zrange('game_events', 0, -1);
-      console.log('zrange(0, -1):', result?.length || 0);
+      // Parse and filter by timestamp
+      events = (eventStrings || [])
+        .map(str => {
+          try {
+            return JSON.parse(str);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .filter(e => e.timestamp >= since);
 
-      // Approach 2: if that didn't work, try zrevrange
-      if (!result || result.length === 0) {
-        console.log('Trying zrevrange...');
-        result = await kv.zrevrange('game_events', 0, -1);
-        console.log('zrevrange result:', result?.length || 0);
-      }
-
-      // Approach 3: try with scores
-      if (!result || result.length === 0) {
-        console.log('Trying zrange with WITHSCORES...');
-        result = await kv.zrange('game_events', 0, -1, { withscores: true });
-        console.log('zrange WITHSCORES:', result?.length || 0);
-      }
-
-      events = result || [];
-      console.log('Final events count:', events.length);
+      console.log('Events after filtering:', events.length);
     } catch (kvError) {
       console.error('KV error:', kvError.message);
       // In local dev, KV might not be available - return empty list

@@ -58,19 +58,14 @@ export default async function handler(request) {
       const timestamp = Date.now();
       const eventData = JSON.stringify({ player, field, value: finalValue, timestamp });
       try {
-        console.log('Saving event:', { key: 'game_events', score: timestamp, member: eventData });
-        const result = await kv.zadd('game_events', timestamp, eventData);
-        console.log('zadd result:', result);
-
-        // Keep only last 100 events by removing oldest
-        const count = await kv.zcard('game_events');
-        console.log('Total events after zadd:', count);
-
-        if (count > 100) {
-          await kv.zpopmin('game_events', count - 100);
-        }
+        console.log('Saving event:', { player, field, timestamp });
+        // Store event as simple list in Redis (more reliable than sorted set)
+        await kv.lpush('game_events_list', eventData);
+        // Keep only last 100 events
+        await kv.ltrim('game_events_list', 0, 99);
+        console.log('Event saved');
       } catch (e) {
-        console.error('KV zadd error:', e.message);
+        console.error('KV error:', e.message);
       }
     }
 
