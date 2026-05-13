@@ -1059,6 +1059,12 @@ footer {
   right: 20px;
   z-index: 9999;
   font-family: inherit;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.notification-center.scrolled {
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
 }
 
 .notification-button {
@@ -4387,6 +4393,25 @@ document.getElementById('stopAnthemBtn').addEventListener('click', () => {
   try { anthemAudio.pause(); anthemAudio.currentTime = 0; } catch(e) {}
   document.getElementById('nowPlaying').style.display = 'none';
 });
+
+// Fade notification bell once user scrolls past the hero
+(function setupNotificationScrollFade() {
+  const center = document.querySelector('.notification-center');
+  const hero = document.querySelector('.hero');
+  if (!center) return;
+  function update() {
+    const heroBottom = hero ? hero.offsetTop + hero.offsetHeight : 120;
+    const scrolled = window.scrollY > heroBottom - 30;
+    center.classList.toggle('scrolled', scrolled);
+    if (scrolled) {
+      const panel = document.getElementById('notificationPanel');
+      if (panel && panel.classList.contains('open')) panel.classList.remove('open');
+    }
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update, { passive: true });
+  update();
+})();
 
 // Toggle notification panel
 document.getElementById('notificationBtn').addEventListener('click', (e) => {
