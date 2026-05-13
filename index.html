@@ -1233,7 +1233,7 @@ footer {
     <div class="notification-header">Letzte Ereignisse</div>
     <div class="notification-settings">
       <label class="toggle-row">
-        <span>🔄 Auto-Sync (30s)</span>
+        <span>🔄 Auto-Sync (1 min)</span>
         <input type="checkbox" id="autoSyncToggle">
       </label>
     </div>
@@ -2925,7 +2925,7 @@ function buildHeroRow(namesA, namesB, hA, hB, score, lastPlayed, onclick, state,
 function startHeroLivePoll() {
   if (heroLiveInterval) return;
   if (localStorage.getItem('tt2026__autoSync') !== 'true') return;
-  heroLiveInterval = setInterval(() => loadAllResults(), 600000);
+  heroLiveInterval = setInterval(() => loadAllResults(), 60000);
 }
 
 function stopHeroLivePoll() {
@@ -4348,11 +4348,11 @@ const syncIntervals = { notify: null, stats: null };
 function startAutoSync() {
   stopAutoSync();
   if (!autoSyncEnabled) return;
-  syncIntervals.notify = setInterval(pollNotifications, 30000);
+  syncIntervals.notify = setInterval(pollNotifications, 60000);
   syncIntervals.stats = setInterval(() => {
     fetchCloudStats().then(() => refreshAllStatsUI());
     flushPendingTracks();
-  }, 30000);
+  }, 60000);
 }
 
 function stopAutoSync() {
