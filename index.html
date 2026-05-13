@@ -897,13 +897,17 @@ footer {
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .hole-btn.active-a { background: rgba(197,99,77,0.25); border-color: #c5634d; color: #f4a18d; }
 .hole-btn.active-draw { background: rgba(212,177,74,0.2); border-color: var(--gold); color: var(--gold); }
@@ -4135,13 +4139,30 @@ function closeFlightDetail() {
   renderResultsTab();
 }
 
+function holeSideLabel(keys) {
+  const filtered = keys.filter(Boolean);
+  if (filtered.length === 0) return '–';
+  if (filtered.length === 1) {
+    const n = PLAYER_NICKNAMES[filtered[0]] || filtered[0];
+    return n.length > 9 ? n.slice(0, 8) + '…' : n;
+  }
+  return filtered.slice(0, 2).map(k => {
+    const n = PLAYER_NICKNAMES[k] || k;
+    return n.slice(0, 4);
+  }).join('/');
+}
+
 function renderHoleList() {
   const { afterHole, concludedOn, result } = calculateMatch(detailHoles);
+  const { sideA, sideB } = getFlightSides(detailDate, detailFlightIdx);
+  const keysA = detailMatchIdx !== null ? [sideA[detailMatchIdx]] : sideA;
+  const keysB = detailMatchIdx !== null ? [sideB[detailMatchIdx]] : sideB;
+  const labelA = holeSideLabel(keysA);
+  const labelB = holeSideLabel(keysB);
 
   // Status bar
   const statusEl = document.getElementById('flightDetailStatus');
   if (result) {
-    const { sideA, sideB } = getFlightSides(detailDate, detailFlightIdx);
     if (result.winner === 'halved') {
       statusEl.innerHTML = `<span style="color:var(--gold);">½ AS – Unentschieden</span>`;
     } else {
@@ -4169,9 +4190,9 @@ function renderHoleList() {
       : '';
     html += `<div class="hole-row${isAfterConclusion ? ' concluded-marker' : ''}">
       <span class="hole-num">${i+1}</span>
-      <button class="hole-btn${val === 1 ? ' active-a' : ''}" onclick="setHole(${i},1)">A</button>
+      <button class="hole-btn${val === 1 ? ' active-a' : ''}" onclick="setHole(${i},1)">${labelA}</button>
       <button class="hole-btn${val === 0 ? ' active-draw' : ''}" onclick="setHole(${i},0)">=</button>
-      <button class="hole-btn${val === -1 ? ' active-b' : ''}" onclick="setHole(${i},-1)">B</button>
+      <button class="hole-btn${val === -1 ? ' active-b' : ''}" onclick="setHole(${i},-1)">${labelB}</button>
       <div>${scoreHtml}</div>
     </div>`;
   }
@@ -4591,6 +4612,7 @@ startAutoSync();
 
   document.addEventListener('touchstart', (e) => {
     if (refreshing) return;
+    if (document.body.classList.contains('detail-open')) { startY = null; return; }
     if (window.scrollY > 0) { startY = null; return; }
     startY = e.touches[0].clientY;
     pulled = 0;
@@ -4598,6 +4620,7 @@ startAutoSync();
 
   document.addEventListener('touchmove', (e) => {
     if (refreshing || startY === null) return;
+    if (document.body.classList.contains('detail-open')) { startY = null; return; }
     pulled = e.touches[0].clientY - startY;
     if (pulled <= 0) {
       indicator.style.transform = '';
