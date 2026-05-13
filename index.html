@@ -4198,44 +4198,51 @@ function getPlayerDisplay(playerKey) {
 function updateNotificationCenter() {
   const list = document.getElementById('notificationList');
   const badge = document.getElementById('notificationBadge');
-  const recentEvents = [...eventCache.events].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
+  const sorted = [...eventCache.events].sort((a, b) => b.timestamp - a.timestamp);
 
   badge.textContent = unreadEventCount > 0 ? unreadEventCount : '0';
   badge.style.display = unreadEventCount > 0 ? 'block' : 'none';
 
-  if (recentEvents.length === 0) {
+  if (sorted.length === 0) {
     list.innerHTML = '<div class="empty-state">Keine Ereignisse</div>';
     return;
   }
 
-  list.innerHTML = recentEvents.map(event => {
-    let emoji, label, className = '';
-    if (event.field === 'birdies') {
-      emoji = '🏌️';
-      label = 'Birdie';
-    } else if (event.field === 'birdies_removed') {
-      emoji = '🏌️';
-      label = 'Birdie entfernt';
-      className = 'removed';
-    } else if (event.field === 'beer') {
-      emoji = '🍺';
-      label = 'Beer';
-    } else if (event.field === 'beer_removed') {
-      emoji = '🍺';
-      label = 'Beer entfernt';
-      className = 'removed';
-    } else if (event.field === 'balls') {
-      emoji = '⚪';
-      label = 'Ballverlust';
-    } else if (event.field === 'balls_removed') {
-      emoji = '⚪';
-      label = 'Ballverlust entfernt';
-      className = 'removed';
+  const GROUP_WINDOW_MS = 5 * 60 * 1000;
+  const groups = [];
+  for (const event of sorted) {
+    const last = groups[groups.length - 1];
+    if (last
+        && last.player === event.player
+        && last.field === event.field
+        && (last.timestamp - event.timestamp) < GROUP_WINDOW_MS) {
+      last.count++;
+      last.firstTimestamp = event.timestamp;
+    } else {
+      groups.push({
+        player: event.player,
+        field: event.field,
+        timestamp: event.timestamp,
+        firstTimestamp: event.timestamp,
+        count: 1,
+      });
     }
+  }
+  const displayed = groups.slice(0, 20);
+
+  list.innerHTML = displayed.map(group => {
+    let emoji, label, className = '';
+    if (group.field === 'birdies') { emoji = '🏌️'; label = 'Birdie'; }
+    else if (group.field === 'birdies_removed') { emoji = '🏌️'; label = 'Birdie entfernt'; className = 'removed'; }
+    else if (group.field === 'beer') { emoji = '🍺'; label = 'Beer'; }
+    else if (group.field === 'beer_removed') { emoji = '🍺'; label = 'Beer entfernt'; className = 'removed'; }
+    else if (group.field === 'balls') { emoji = '⚪'; label = 'Ballverlust'; }
+    else if (group.field === 'balls_removed') { emoji = '⚪'; label = 'Ballverlust entfernt'; className = 'removed'; }
+    const countLabel = group.count > 1 ? `<b>${group.count}×</b> ` : '';
     return `
       <div class="notification-item ${className}">
-        <div class="notification-item-text">${emoji} ${label} by ${getPlayerDisplay(event.player)}</div>
-        <div class="notification-item-time">${formatTimeAgo(event.timestamp)}</div>
+        <div class="notification-item-text">${emoji} ${countLabel}${label} by ${getPlayerDisplay(group.player)}</div>
+        <div class="notification-item-time">${formatTimeAgo(group.timestamp)}</div>
       </div>
     `;
   }).join('');
