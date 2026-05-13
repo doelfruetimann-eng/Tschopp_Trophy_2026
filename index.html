@@ -1104,6 +1104,20 @@ body.detail-open .notification-center {
   top: -8px;
 }
 
+.beer-badge {
+  background: var(--gold);
+  border-radius: 50%;
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  padding: 2px 4px;
+  position: absolute;
+  right: -8px;
+  text-align: center;
+  top: -8px;
+}
+
 .notification-panel {
   background: var(--bg-card);
   border: 2px solid var(--gold);
@@ -1535,7 +1549,7 @@ body.detail-open .notification-center {
 <!-- Notification Center -->
 <div class="notification-center">
   <button class="notification-button" id="beerBtn" title="Bier hinzufügen">
-    🍺 <span id="beerBadge" style="font-size:11px;color:var(--muted);">0</span>
+    🍺 <span class="beer-badge" id="beerBadge">0</span>
   </button>
   <button class="notification-button" id="notificationBtn" title="Letzte Ereignisse">
     🔔 <span class="notification-badge" id="notificationBadge">0</span>
