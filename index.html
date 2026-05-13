@@ -1891,29 +1891,37 @@ function initProfile() {
   });
 }
 
+function activateTab(name, scroll) {
+  const btn = document.querySelector('.tab[data-tab="' + name + '"]');
+  const section = document.getElementById(name);
+  if (!btn || !section) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  section.classList.add('active');
+  if (scroll) {
+    const tabsWrap = document.querySelector('.tabs-wrap');
+    if (tabsWrap) window.scrollTo({ top: tabsWrap.offsetTop, behavior: 'smooth' });
+  }
+  if (name === 'weather') loadWeather(true);
+  if (name === 'info' || name === 'trackers') {
+    fetchCloudStats().then(() => refreshAllStatsUI());
+  }
+}
+
 function initTabs() {
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-      btn.classList.add('active');
-      const targetSection = document.getElementById(btn.dataset.tab);
-      targetSection.classList.add('active');
-      // Scroll zur Tab-Bar (oberhalb des Sections), so dass Inhalt direkt sichtbar
-      const tabsWrap = document.querySelector('.tabs-wrap');
-      const tabsTop = tabsWrap.offsetTop;
-      window.scrollTo({ top: tabsTop, behavior: 'smooth' });
-      // Wetter bei Tab-Wechsel immer neu laden
-      if (btn.dataset.tab === 'weather') {
-        loadWeather(true);
-      }
-      // Trip-Stats und Tracker neu laden bei relevanten Tabs
-      if (btn.dataset.tab === 'info' || btn.dataset.tab === 'trackers') {
-        fetchCloudStats().then(() => refreshAllStatsUI());
-      }
+      const name = btn.dataset.tab;
+      try { localStorage.setItem('tt2026__activeTab', name); } catch(e) {}
+      activateTab(name, true);
     });
   });
+  const saved = localStorage.getItem('tt2026__activeTab');
+  if (saved && document.querySelector('.tab[data-tab="' + saved + '"]')) {
+    activateTab(saved, false);
+  }
 }
 
 function initPlayerCards() {
