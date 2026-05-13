@@ -2496,6 +2496,21 @@ function sortByTrophyTeam(members) {
   return members.slice().sort((a, b) => rank(a) - rank(b));
 }
 
+function splitByTeam(members) {
+  const sideA = [], sideB = [], unt = [];
+  members.forEach(k => {
+    const t = trophyTeamCache[k];
+    if (t === 'red') sideA.push(k);
+    else if (t === 'blue') sideB.push(k);
+    else unt.push(k);
+  });
+  unt.forEach(k => {
+    if (sideA.length <= sideB.length) sideA.push(k);
+    else sideB.push(k);
+  });
+  return { sideA, sideB };
+}
+
 function flightTeamCount(members, team) {
   return members.filter(k => getPlayerTeam(k) === team).length;
 }
@@ -2540,9 +2555,7 @@ function renderBuilder() {
       bc ? `<span style="color:#92c4e6;font-size:11px;">🔵${bc}</span>` : '',
     ].filter(Boolean).join(' ');
 
-    const half = Math.ceil(flight.members.length / 2);
-    const sA = flight.members.slice(0, half);
-    const sB = flight.members.slice(half);
+    const { sideA: sA, sideB: sB } = splitByTeam(flight.members);
     const chip = (key, fi) => {
       const nick = PLAYER_NICKNAMES[key] || key;
       const tc = playerTeamClass(key);
@@ -3861,8 +3874,7 @@ function getFlightSides(date, fi) {
     }
     return { sideA, sideB };
   }
-  const half = Math.ceil(members.length / 2);
-  return { sideA: members.slice(0, half), sideB: members.slice(half) };
+  return splitByTeam(members);
 }
 
 function sideNames(keys) {
