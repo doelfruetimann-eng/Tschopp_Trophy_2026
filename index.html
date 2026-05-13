@@ -2682,42 +2682,66 @@ function renderHeroTeamScore() {
   document.getElementById('heroScoreA').textContent = fmt(allA);
   document.getElementById('heroScoreB').textContent = fmt(allB);
 
-  // Match grid: alle Flights mit eingetragenen Resultaten (offen oder abgeschlossen)
   const matchRows = [];
 
   const teamHex = c => c === 'red' ? '#f4a18d' : c === 'blue' ? '#92c4e6' : 'var(--text)';
+  const trackingDate = getTrackingDate();
 
-  Object.keys(teamsCache).sort().forEach(date => {
-    (teamsCache[date] || []).forEach((flight, fi) => {
-      if (isSingles(date)) {
-        const count = singlesMatchCount(date, fi);
-        const { sideA, sideB } = getFlightSides(date, fi);
+  const candidates = [];
+  (teamsCache[trackingDate] || []).forEach((flight, fi) => {
+    if (isSingles(trackingDate)) {
+      const count = singlesMatchCount(trackingDate, fi);
+      for (let mi = 0; mi < count; mi++) candidates.push({ date: trackingDate, fi, mi });
+    } else {
+      candidates.push({ date: trackingDate, fi, mi: null });
+    }
+  });
+  Object.keys(teamsCache).forEach(d => {
+    if (d === trackingDate) return;
+    (teamsCache[d] || []).forEach((flight, fi) => {
+      if (isSingles(d)) {
+        const count = singlesMatchCount(d, fi);
         for (let mi = 0; mi < count; mi++) {
-          const cached = resultsCache[getResultKey(date, fi, mi)];
+          const cached = resultsCache[getResultKey(d, fi, mi)];
           if (!cached?.holes) continue;
-          const { score, lastPlayed, result } = calculateMatch(cached.holes);
-          if (lastPlayed < 0 || result) continue;
-          const hA = teamHex(sideColor([sideA[mi]]));
-          const hB = teamHex(sideColor([sideB[mi]]));
-          matchRows.push(buildHeroRow(
-            [PLAYER_NICKNAMES[sideA[mi]] || sideA[mi] || '—'],
-            [PLAYER_NICKNAMES[sideB[mi]] || sideB[mi] || '—'],
-            hA, hB, score, lastPlayed, `openFlightDetail('${date}',${fi},${mi})`));
+          const { lastPlayed, result } = calculateMatch(cached.holes);
+          if (lastPlayed >= 0 && !result) candidates.push({ date: d, fi, mi });
         }
       } else {
-        const cached = resultsCache[getResultKey(date, fi, null)];
+        const cached = resultsCache[getResultKey(d, fi, null)];
         if (!cached?.holes) return;
-        const { score, lastPlayed, result } = calculateMatch(cached.holes);
-        if (lastPlayed < 0 || result) return;
-        const { sideA, sideB } = getFlightSides(date, fi);
-        const hA = teamHex(sideColor(sideA));
-        const hB = teamHex(sideColor(sideB));
-        matchRows.push(buildHeroRow(
-          sideA.map(k => PLAYER_NICKNAMES[k] || k),
-          sideB.map(k => PLAYER_NICKNAMES[k] || k),
-          hA, hB, score, lastPlayed, `openFlightDetail('${date}',${fi})`));
+        const { lastPlayed, result } = calculateMatch(cached.holes);
+        if (lastPlayed >= 0 && !result) candidates.push({ date: d, fi, mi: null });
       }
     });
+  });
+
+  candidates.sort((a, b) => {
+    if (a.date !== b.date) {
+      if (a.date === trackingDate) return -1;
+      if (b.date === trackingDate) return 1;
+      return a.date.localeCompare(b.date);
+    }
+    if (a.fi !== b.fi) return a.fi - b.fi;
+    return (a.mi ?? -1) - (b.mi ?? -1);
+  });
+
+  candidates.forEach(({ date, fi, mi }) => {
+    const cached = resultsCache[getResultKey(date, fi, mi)];
+    const holes = cached?.holes;
+    const calc = holes ? calculateMatch(holes) : { score: 0, lastPlayed: -1, result: null };
+    const state = calc.result ? 'done' : (calc.lastPlayed >= 0 ? 'live' : 'pending');
+    const { sideA, sideB } = getFlightSides(date, fi);
+    const keysA = mi !== null ? [sideA[mi]] : sideA;
+    const keysB = mi !== null ? [sideB[mi]] : sideB;
+    const namesA = keysA.map(k => PLAYER_NICKNAMES[k] || k || '—');
+    const namesB = keysB.map(k => PLAYER_NICKNAMES[k] || k || '—');
+    const hA = teamHex(sideColor(keysA));
+    const hB = teamHex(sideColor(keysB));
+    const onclick = mi !== null
+      ? `openFlightDetail('${date}',${fi},${mi})`
+      : `openFlightDetail('${date}',${fi})`;
+    matchRows.push(buildHeroRow(namesA, namesB, hA, hB, calc.score, calc.lastPlayed, onclick, state, calc.result));
   });
 
   const liveSec = document.getElementById('heroLiveSection');
@@ -2730,23 +2754,56 @@ function renderHeroTeamScore() {
   startHeroLivePoll();
 }
 
-function buildHeroRow(namesA, namesB, hA, hB, score, lastPlayed, onclick) {
-  const winA = score > 0, winB = score < 0, tied = score === 0;
+function buildHeroRow(namesA, namesB, hA, hB, score, lastPlayed, onclick, state, result) {
+  state = state || 'live';
+  const badge = (hex, label, side) =>
+    `<span class="hero-match-badge ${side}" style="background:${hex}22;color:${hex};border:1px solid ${hex}55">${label}</span>`;
+  const badgeEmpty = `<span></span>`;
 
+  if (state === 'pending') {
+    const namesHtml = (names, hex, side) =>
+      `<div class="hero-match-names ${side}">${names.map(n => `<span class="hero-match-player" style="color:${hex};opacity:0.85;">${n}</span>`).join('')}</div>`;
+    return `<div class="hero-match-row" onclick="${onclick}" style="cursor:pointer;opacity:0.75;">
+      ${badgeEmpty}
+      ${namesHtml(namesA, hA, 'a')}
+      <div class="hero-match-hole" style="color:var(--muted);font-size:14px;">·</div>
+      ${namesHtml(namesB, hB, 'b')}
+      ${badgeEmpty}
+    </div>`;
+  }
+
+  if (state === 'done') {
+    const winA = result?.winner === 'a';
+    const winB = result?.winner === 'b';
+    const halved = result?.winner === 'halved';
+    const playerColor = (hex, wins) => wins ? hex : halved ? 'var(--text)' : 'var(--muted)';
+    const playerWeight = wins => wins ? 700 : 400;
+    const namesHtml = (names, hex, wins, side) =>
+      `<div class="hero-match-names ${side}">${names.map(n => `<span class="hero-match-player" style="color:${playerColor(hex,wins)};font-weight:${playerWeight(wins)}">${n}</span>`).join('')}</div>`;
+    const margin = (result?.margin || '').replace('up', 'UP');
+    const cellA = winA ? badge(hA, margin, 'a') : badgeEmpty;
+    const cellB = winB ? badge(hB, margin, 'b') : badgeEmpty;
+    const middle = halved
+      ? `<div class="hero-match-hole" style="color:var(--muted);font-size:11px;">AS</div>`
+      : `<div class="hero-match-hole" style="color:var(--green-good);font-size:13px;">✓</div>`;
+    return `<div class="hero-match-row" onclick="${onclick}" style="cursor:pointer;">
+      ${cellA}
+      ${namesHtml(namesA, hA, winA, 'a')}
+      ${middle}
+      ${namesHtml(namesB, hB, winB, 'b')}
+      ${cellB}
+    </div>`;
+  }
+
+  const winA = score > 0, winB = score < 0, tied = score === 0;
   const playerColor = (hex, wins) => wins ? hex : tied ? 'var(--text)' : 'var(--muted)';
   const playerWeight = wins => wins ? 700 : 400;
   const namesHtml = (names, hex, wins, side) =>
     `<div class="hero-match-names ${side}">${names.map(n => `<span class="hero-match-player" style="color:${playerColor(hex,wins)};font-weight:${playerWeight(wins)}">${n}</span>`).join('')}</div>`;
-
-  const badge = (hex, label, side) =>
-    `<span class="hero-match-badge ${side}" style="background:${hex}22;color:${hex};border:1px solid ${hex}55">${label}</span>`;
-  const badgeEmpty = `<span></span>`;
   const badgeAs =
     `<span class="hero-match-badge a" style="background:rgba(255,255,255,0.07);color:var(--muted);text-align:right">A/S</span>`;
-
   const cellA = winA ? badge(hA, score + 'UP', 'a') : tied ? badgeAs : badgeEmpty;
   const cellB = winB ? badge(hB, Math.abs(score) + 'UP', 'b') : badgeEmpty;
-
   return `<div class="hero-match-row" onclick="${onclick}" style="cursor:pointer;">
     ${cellA}
     ${namesHtml(namesA, hA, winA, 'a')}
