@@ -4628,13 +4628,13 @@ function setHole(holeIdx, val) {
 }
 
 async function saveFlightResult() {
-  const apiFlightIdx = detailMatchIdx !== null ? `${detailFlightIdx}__${detailMatchIdx}` : detailFlightIdx;
+  const matchKey = detailMatchIdx !== null ? `__${detailMatchIdx}` : '';
   const cacheKey = getResultKey(detailDate, detailFlightId, detailMatchIdx);
   try {
     await fetch('/api/results', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: detailDate, flightIdx: apiFlightIdx, holes: detailHoles }),
+      body: JSON.stringify({ date: detailDate, flightId: detailFlightId, matchKey, holes: detailHoles }),
     });
     resultsCache[cacheKey] = { holes: [...detailHoles] };
   } catch(e) { console.warn('Save result failed', e); }
