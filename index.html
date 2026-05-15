@@ -1578,6 +1578,7 @@ body.detail-open .notification-center {
     </div>
     <div class="notification-quick-add">
       <button class="notification-quick-btn" id="quickAddBeer" title="Bier hinzufügen">🍺+1</button>
+      <button class="notification-quick-btn" id="quickAddSchirmli" title="Schirmlidrink hinzufügen">🍹+1</button>
       <button class="notification-quick-btn" id="quickAddBalls" title="Ball verloren">⚪+1</button>
       <button class="notification-quick-btn" id="quickAddBirdies" title="Birdie">🏌️+1</button>
     </div>
@@ -1662,11 +1663,16 @@ body.detail-open .notification-center {
       <div class="stat-lbl">Bier total</div>
     </div>
     <div class="stat-tile">
+      <div class="stat-icon">🍹</div>
+      <div class="stat-num" id="statTotalSchirmli">0</div>
+      <div class="stat-lbl">Schirmlis total</div>
+    </div>
+    <div class="stat-tile">
       <div class="stat-icon">🏌️</div>
       <div class="stat-num" id="statTotalBalls">0</div>
       <div class="stat-lbl">Bälle weg</div>
     </div>
-    <div class="stat-tile" style="grid-column: span 2;">
+    <div class="stat-tile">
       <div class="stat-icon">🐥</div>
       <div class="stat-num" id="statTotalBirdies">0</div>
       <div class="stat-lbl">Birdies total</div>
@@ -1674,6 +1680,7 @@ body.detail-open .notification-center {
   </div>
   <div class="card" style="margin-top:8px;">
     <div class="row"><span class="lbl">🍺 Top-Trinker</span><span class="val" id="statTopBeer">–</span></div>
+    <div class="row"><span class="lbl">🍹 Top Schirmli-Trinker</span><span class="val" id="statTopSchirmli">–</span></div>
     <div class="row"><span class="lbl">🌊 Atlantik-Spender</span><span class="val" id="statTopBalls">–</span></div>
     <div class="row"><span class="lbl">🐥 Top Birdie-Jäger</span><span class="val" id="statTopBirdies">–</span></div>
   </div>
@@ -1917,7 +1924,7 @@ body.detail-open .notification-center {
   <h2>Live-Tracker</h2>
   <p class="small">Daten werden für alle synchronisiert.</p>
 
-  <h3>🍺 Bierkonsum (heute)</h3>
+  <h3>🥂 Konsum (heute)</h3>
   <div class="counter">
     <div>
       <div class="counter-value" id="beerToday">0</div>
@@ -1937,6 +1944,21 @@ body.detail-open .notification-center {
     <label>Dein Gewicht (kg)</label>
     <input type="number" id="weightInput" placeholder="80">
     <p class="small" style="margin-top:6px;">Widmark-Schätzung. Realität kann abweichen 😅</p>
+  </div>
+
+  <div class="counter" style="margin-top:16px;">
+    <div>
+      <div class="counter-value" id="schirmliToday">0</div>
+      <div class="counter-label">Schirmlidrinks heute</div>
+    </div>
+    <div class="counter-controls">
+      <button class="counter-btn minus" onclick="adjust('schirmli', -1)">−</button>
+      <button class="counter-btn" onclick="adjust('schirmli', 1)">+</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px;">
+    <div class="row"><span class="lbl">Total Trip</span><span class="val" id="schirmliTotal">0 🍹</span></div>
+    <div class="row"><span class="lbl">Tagesbestmarke</span><span class="val" id="schirmliRecord">–</span></div>
   </div>
 
   <h3>🏌️ Ballverlust</h3>
@@ -3494,6 +3516,7 @@ function invalidateTotalCache(playerKey, field) {
 
 function refreshAllStatsUI() {
   if (typeof updateBeer === 'function') updateBeer();
+  if (typeof updateSchirmli === 'function') updateSchirmli();
   if (typeof updateBalls === 'function') updateBalls();
   if (typeof updateBirdies === 'function') updateBirdies();
   if (typeof updateTripStats === 'function') updateTripStats();
@@ -3542,6 +3565,10 @@ function renderTrackerHistory() {
     +     '<input type="number" id="newHistoryBeer" min="0" value="0">'
     +   '</div>'
     +   '<div class="history-new-value">'
+    +     '<label>🍹 Schirmli</label>'
+    +     '<input type="number" id="newHistorySchirmli" min="0" value="0">'
+    +   '</div>'
+    +   '<div class="history-new-value">'
     +     '<label>⚪ Bälle</label>'
     +     '<input type="number" id="newHistoryBalls" min="0" value="0">'
     +   '</div>'
@@ -3559,11 +3586,13 @@ function renderTrackerHistory() {
     const d = new Date(date + 'T12:00:00');
     const label = dayNames[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
     const beer = parseInt(CLOUD_STATS[currentProfile + '__beer__' + date] || 0, 10);
+    const schirmli = parseInt(CLOUD_STATS[currentProfile + '__schirmli__' + date] || 0, 10);
     const balls = parseInt(CLOUD_STATS[currentProfile + '__balls__' + date] || 0, 10);
     const birdies = parseInt(CLOUD_STATS[currentProfile + '__birdies__' + date] || 0, 10);
     return '<div class="history-row">'
       + '<span class="history-date">' + label + '</span>'
       + '<label class="history-cell"><span>🍺</span><input type="number" min="0" value="' + beer + '" data-date="' + date + '" data-field="beer"></label>'
+      + '<label class="history-cell"><span>🍹</span><input type="number" min="0" value="' + schirmli + '" data-date="' + date + '" data-field="schirmli"></label>'
       + '<label class="history-cell"><span>⚪</span><input type="number" min="0" value="' + balls + '" data-date="' + date + '" data-field="balls"></label>'
       + '<label class="history-cell"><span>🏌️</span><input type="number" min="0" value="' + birdies + '" data-date="' + date + '" data-field="birdies"></label>'
       + '</div>';
@@ -3604,6 +3633,7 @@ async function saveHistoryValue(input) {
 async function addNewHistoryEntry() {
   const dateInput = document.getElementById('newHistoryDate');
   const beerInput = document.getElementById('newHistoryBeer');
+  const schirmliInput = document.getElementById('newHistorySchirmli');
   const ballsInput = document.getElementById('newHistoryBalls');
   const birdiesInput = document.getElementById('newHistoryBirdies');
 
@@ -3614,10 +3644,11 @@ async function addNewHistoryEntry() {
 
   const date = dateInput.value;
   const beer = Math.max(0, parseInt(beerInput.value, 10) || 0);
+  const schirmli = Math.max(0, parseInt(schirmliInput.value, 10) || 0);
   const balls = Math.max(0, parseInt(ballsInput.value, 10) || 0);
   const birdies = Math.max(0, parseInt(birdiesInput.value, 10) || 0);
 
-  if (beer === 0 && balls === 0 && birdies === 0) {
+  if (beer === 0 && schirmli === 0 && balls === 0 && birdies === 0) {
     toast('Mindestens ein Wert erforderlich');
     return;
   }
@@ -3626,6 +3657,7 @@ async function addNewHistoryEntry() {
   try {
     const updates = [];
     if (beer > 0) updates.push({ key: player + '__beer__' + date, value: beer });
+    if (schirmli > 0) updates.push({ key: player + '__schirmli__' + date, value: schirmli });
     if (balls > 0) updates.push({ key: player + '__balls__' + date, value: balls });
     if (birdies > 0) updates.push({ key: player + '__birdies__' + date, value: birdies });
 
@@ -3642,10 +3674,12 @@ async function addNewHistoryEntry() {
 
     dateInput.value = '';
     beerInput.value = '0';
+    schirmliInput.value = '0';
     ballsInput.value = '0';
     birdiesInput.value = '0';
 
     if (typeof updateBeer === 'function') updateBeer();
+    if (typeof updateSchirmli === 'function') updateSchirmli();
     if (typeof updateBalls === 'function') updateBalls();
     if (typeof updateBirdies === 'function') updateBirdies();
     if (typeof updateTripStats === 'function') updateTripStats();
@@ -3660,6 +3694,9 @@ function adjust(type, delta) {
   if (type === 'beer') {
     if (delta > 0) toast('🍺 Prost!');
     trackCloud('beer', delta);
+  } else if (type === 'schirmli') {
+    if (delta > 0) toast('🍹 Schirmli!');
+    trackCloud('schirmli', delta);
   } else if (type === 'balls') {
     if (delta > 0) {
       const reason = document.getElementById('lossReason').value;
@@ -3695,6 +3732,25 @@ function updateBeer() {
 
   if (todayCount === 100) toast('🥚 EASTER EGG: 100-Bier-Marke! Legende!');
   updatePromille();
+}
+
+function updateSchirmli() {
+  const todayCount = currentProfile ? getCloudValue(currentProfile, 'schirmli') : 0;
+  const totalCount = currentProfile ? getTotalCloudValue(currentProfile, 'schirmli') : 0;
+  document.getElementById('schirmliToday').textContent = todayCount;
+  document.getElementById('schirmliTotal').textContent = totalCount + ' 🍹';
+  if (currentProfile) {
+    const best = getBestDay(currentProfile, 'schirmli');
+    if (best.date) {
+      const d = new Date(best.date + 'T00:00:00');
+      const dayName = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+      document.getElementById('schirmliRecord').textContent = best.count + ' (' + dayName + ' ' + d.getDate() + '.)';
+    } else {
+      document.getElementById('schirmliRecord').textContent = '–';
+    }
+  } else {
+    document.getElementById('schirmliRecord').textContent = '–';
+  }
 }
 
 function updatePromille() {
@@ -3757,20 +3813,23 @@ function updateBirdies() {
 
 // === TRIP STATS (alle Spieler aggregiert aus Cloud) ===
 function updateTripStats() {
-  let totalBeer = 0;
-  let totalBalls = 0;
-  let totalBirdies = 0;
+  let totalBeer = 0, totalSchirmli = 0, totalBalls = 0, totalBirdies = 0;
   let topBeerPlayer = null, topBeerCount = 0;
+  let topSchirmliPlayer = null, topSchirmliCount = 0;
   let topBallsPlayer = null, topBallsCount = 0;
   let topBirdiesPlayer = null, topBirdiesCount = 0;
 
   PLAYERS.forEach(p => {
     const beer = getTotalCloudValue(p.key, 'beer');
+    const schirmli = getTotalCloudValue(p.key, 'schirmli');
     const balls = getTotalCloudValue(p.key, 'balls');
     const birdies = getTotalCloudValue(p.key, 'birdies');
 
     totalBeer += beer;
     if (beer > topBeerCount) { topBeerCount = beer; topBeerPlayer = p; }
+
+    totalSchirmli += schirmli;
+    if (schirmli > topSchirmliCount) { topSchirmliCount = schirmli; topSchirmliPlayer = p; }
 
     totalBalls += balls;
     if (balls > topBallsCount) { topBallsCount = balls; topBallsPlayer = p; }
@@ -3780,15 +3839,19 @@ function updateTripStats() {
   });
 
   const beerEl = document.getElementById('statTotalBeer');
+  const schirmliEl = document.getElementById('statTotalSchirmli');
   const ballsEl = document.getElementById('statTotalBalls');
   const birdiesEl = document.getElementById('statTotalBirdies');
   const topBeerEl = document.getElementById('statTopBeer');
+  const topSchirmliEl = document.getElementById('statTopSchirmli');
   const topBallsEl = document.getElementById('statTopBalls');
   const topBirdiesEl = document.getElementById('statTopBirdies');
   if (beerEl) beerEl.textContent = totalBeer;
+  if (schirmliEl) schirmliEl.textContent = totalSchirmli;
   if (ballsEl) ballsEl.textContent = totalBalls;
   if (birdiesEl) birdiesEl.textContent = totalBirdies;
   if (topBeerEl) topBeerEl.textContent = topBeerPlayer ? topBeerPlayer.name + ' · ' + topBeerCount : '–';
+  if (topSchirmliEl) topSchirmliEl.textContent = topSchirmliPlayer ? topSchirmliPlayer.name + ' · ' + topSchirmliCount : '–';
   if (topBallsEl) topBallsEl.textContent = topBallsPlayer ? topBallsPlayer.name + ' · ' + topBallsCount : '–';
   if (topBirdiesEl) topBirdiesEl.textContent = topBirdiesPlayer ? topBirdiesPlayer.name + ' · ' + topBirdiesCount : '–';
 }
@@ -3871,6 +3934,7 @@ function loadTrackers() {
   });
   document.getElementById('weightInput').value = loadField('weight','');
   updateBeer();
+  updateSchirmli();
   updateBalls();
   updateBirdies();
 }
@@ -4653,6 +4717,10 @@ document.getElementById('resultDaySelect').addEventListener('change', renderResu
 document.getElementById('quickAddBeer').addEventListener('click', () => {
   adjust('beer', 1);
   if (typeof updateBeer === 'function') updateBeer();
+});
+document.getElementById('quickAddSchirmli').addEventListener('click', () => {
+  adjust('schirmli', 1);
+  if (typeof updateSchirmli === 'function') updateSchirmli();
 });
 document.getElementById('quickAddBalls').addEventListener('click', () => {
   adjust('balls', 1);
