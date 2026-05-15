@@ -1230,9 +1230,14 @@ body.detail-open .notification-center {
   gap: 4px;
 }
 .history-new-value label {
-  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   line-height: 1;
 }
+.history-new-value label .lv-icon { font-size: 18px; }
+.history-new-value label .lv-text { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .history-new-value input {
   width: 100%;
   min-height: 42px;
@@ -3558,19 +3563,19 @@ function renderTrackerHistory() {
     + '</div>'
     + '<div class="history-new-values">'
     +   '<div class="history-new-value">'
-    +     '<label>🍺 Bier</label>'
+    +     '<label><span class="lv-icon">🍺</span><span class="lv-text">Bier</span></label>'
     +     '<input type="number" id="newHistoryBeer" min="0" value="0">'
     +   '</div>'
     +   '<div class="history-new-value">'
-    +     '<label>🍹 Schirmli</label>'
+    +     '<label><span class="lv-icon">🍹</span><span class="lv-text">Schirmli</span></label>'
     +     '<input type="number" id="newHistorySchirmli" min="0" value="0">'
     +   '</div>'
     +   '<div class="history-new-value">'
-    +     '<label>⚪ Bälle</label>'
+    +     '<label><span class="lv-icon">⚪</span><span class="lv-text">Bälle</span></label>'
     +     '<input type="number" id="newHistoryBalls" min="0" value="0">'
     +   '</div>'
     +   '<div class="history-new-value">'
-    +     '<label>🏌️ Birdie</label>'
+    +     '<label><span class="lv-icon">🏌️</span><span class="lv-text">Birdie</span></label>'
     +     '<input type="number" id="newHistoryBirdies" min="0" value="0">'
     +   '</div>'
     + '</div>'
