@@ -100,6 +100,54 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #authSubmit { width:100%; font:inherit; font-size:14px; font-weight:700; cursor:pointer; border:0; border-radius:7px; background:var(--accent); color:#fff; padding:10px; }
 .auth-card .link { display:block; margin:12px auto 0; font-size:12px; color:var(--accent); background:none; border:0; cursor:pointer; }
 .auth-err { color:var(--warn); font-size:12px; min-height:16px; margin-top:8px; text-align:center; }
+
+/* ---- Status-Punkt auf Post-its (Hauptwand) ---- */
+.postit .dot { position:absolute; top:5px; right:6px; width:10px; height:10px; border-radius:50%; border:1.5px solid rgba(0,0,0,.25); }
+.dot.offen { background:#cfd5dd; } .dot.arbeit { background:#3f6fb0; } .dot.erledigt { background:#2f8a4c; }
+.postit.st-erledigt { opacity:.72; }
+.phase-zoom { position:absolute; top:6px; right:6px; z-index:10; font-size:12px; line-height:1; border:1px solid var(--line); border-radius:5px; background:#fff; cursor:pointer; padding:3px 5px; }
+.phase-zoom:hover { background:#e3ecf7; border-color:var(--accent); }
+
+/* ---- Phasen-Lupe ---- */
+#lupe { position:fixed; inset:0; z-index:70; display:none; background:rgba(20,28,40,.5); }
+#lupe .lupe-inner { position:absolute; inset:24px; background:#fff; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; }
+.lupe-top { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--line); background:#f6f8fb; }
+.lupe-top h2 { margin:0; font-size:16px; } .lupe-top .ph-no { font-size:11px; color:var(--muted); }
+.lupe-top .sp { margin-left:auto; }
+.lupe-top button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--line); border-radius:6px; background:#fff; padding:6px 10px; }
+.lupe-top button:hover { background:#eceef2; }
+.lupe-top .lupe-close { background:var(--accent); color:#fff; border-color:var(--accent); }
+.lupe-body { flex:1; overflow-y:auto; padding:16px 18px; }
+.lupe-tools { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.lupe-tools button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--accent); color:var(--accent); border-radius:16px; background:#eef4fb; padding:6px 12px; }
+.lupe-tools button:hover { background:#dfeaf7; }
+.lupe-tools button:disabled { opacity:.5; cursor:default; }
+.ei-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-bottom:8px; }
+.ei-grid .full { grid-column:1 / -1; }
+.ei-grid label { display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:2px; }
+.ei-grid textarea { width:100%; font:inherit; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:38px; }
+.lupe-sec { margin-top:18px; border-top:1px solid var(--line); padding-top:12px; }
+.lupe-sec h3 { margin:0 0 8px; font-size:13px; display:flex; align-items:center; gap:8px; }
+.lupe-sec h3 .cnt { font-size:11px; color:var(--muted); font-weight:400; }
+.lupe-sec h3 .add { margin-left:auto; font-size:11px; font-weight:600; cursor:pointer; border:1px dashed var(--line); border-radius:6px; background:#fafbfc; padding:3px 9px; color:var(--accent); }
+.tk { display:flex; align-items:flex-start; gap:9px; padding:7px 9px; border:1px solid var(--line); border-radius:8px; margin-bottom:7px; background:#fff; }
+.tk .tk-dot { flex:none; margin-top:2px; width:15px; height:15px; border-radius:50%; border:2px solid #cfd5dd; cursor:pointer; }
+.tk .tk-dot.arbeit { background:#3f6fb0; border-color:#3f6fb0; } .tk .tk-dot.erledigt { background:#2f8a4c; border-color:#2f8a4c; }
+.tk .tk-text { flex:1; font-size:12.5px; line-height:1.4; outline:none; min-height:18px; }
+.tk .tk-text:focus { background:#fffdf0; }
+.tk.done .tk-text { text-decoration:line-through; color:var(--muted); }
+.tk button { flex:none; font-size:12px; cursor:pointer; border:1px solid var(--line); border-radius:5px; background:#f6f7f9; padding:2px 6px; }
+.tk button:hover { background:#e9ecf1; }
+.tk-ai-box { margin:0 0 9px 24px; padding:9px 11px; border-left:3px solid var(--accent); background:#f2f7fc; border-radius:0 8px 8px 0; font-size:12px; white-space:pre-wrap; }
+.tk-ai-box .row { margin-top:8px; display:flex; gap:8px; }
+.tk-ai-box button { font:inherit; font-size:11.5px; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:5px 10px; }
+.tk-ai-box .take { background:#2f8a4c; color:#fff; } .tk-ai-box .drop { background:#6b7a8d; color:#fff; }
+#lupeProp { margin:12px 0; padding:12px 14px; border:1px solid var(--accent); border-radius:10px; background:#f2f7fc; display:none; }
+#lupeProp h4 { margin:0 0 8px; font-size:12.5px; }
+#lupeProp label { display:flex; gap:8px; align-items:flex-start; font-size:12.5px; margin-bottom:6px; cursor:pointer; }
+#lupeProp .row { margin-top:10px; display:flex; gap:8px; }
+#lupeProp .row button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:6px 12px; }
+#lupeProp .take { background:#2f8a4c; color:#fff; } #lupeProp .drop { background:#6b7a8d; color:#fff; }
 </style>
 </head>
 <body>
@@ -148,6 +196,17 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 </div>
 
 <div id="overlay"><div class="modal" id="modalBox"></div></div>
+
+<div id="lupe"><div class="lupe-inner">
+  <div class="lupe-top">
+    <div><h2 id="lupeTitle">Phase</h2><div class="ph-no" id="lupeNo"></div></div>
+    <span class="sp"></span>
+    <button id="lupePrev" title="vorige Phase">&#8592;</button>
+    <button id="lupeNext" title="nächste Phase">&#8594;</button>
+    <button class="lupe-close" id="lupeClose">Schliessen</button>
+  </div>
+  <div class="lupe-body" id="lupeBody"></div>
+</div></div>
 
 <div id="authGate">
   <div class="auth-card" id="authForm" data-mode="login">
@@ -258,7 +317,7 @@ function render() {
 
   s.phases.forEach((p, i) => {
     const left = LABEL_W + phaseLeft(i, s);
-    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken f&uuml;r System-Ei</small><div class="phase-resize" data-ri="' + i + '"></div></div>';
+    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
     if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
   });
 
@@ -271,7 +330,8 @@ function render() {
   });
 
   s.postits.forEach(p => {
-    h += '<div class="postit' + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '">' + esc(p.text) + '</div>';
+    const st = p.status || 'offen';
+    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
   });
 
   h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a5e"/></marker></defs>';
@@ -348,6 +408,8 @@ canvas.addEventListener('click', e => {
     }
     return;
   }
+  const zoom = e.target.closest('.phase-zoom');
+  if (zoom) { openLupe(+zoom.dataset.zi); return; }
   const ph = e.target.closest('.phase-head');
   if (ph && !e.target.closest('.phase-resize')) openPhaseModal(+ph.dataset.pi);
 });
@@ -480,7 +542,7 @@ const KEY_STORE = 'pw-anthropic-key';
 function getKey() {
   let k = localStorage.getItem(KEY_STORE);
   if (k) return k;
-  
+
   for (const alt of ['anthropic-key','anthropic-api-key','claude-api-key','osto-api-key']) {
     k = localStorage.getItem(alt);
     if (k) { localStorage.setItem(KEY_STORE, k); return k; }
@@ -801,6 +863,169 @@ document.getElementById('pvErgaenzen').onclick = () => {
   save(); render();
   sysMsg('✅ Entwurf ergänzt (bestehende Post-its blieben erhalten). «Rückgängig» stellt den vorherigen Stand wieder her.');
 };
+
+/* ================================================================
+   PHASEN-LUPE  – in eine Phase hineinzoomen & im Detail bearbeiten
+   ================================================================ */
+const STATUS_NEXT = { offen:'arbeit', arbeit:'erledigt', erledigt:'offen' };
+const STATUS_LABEL = { offen:'offen', arbeit:'in Arbeit', erledigt:'erledigt' };
+const LUPE_SECTIONS = [
+  { lane:'handlung', title:'Aufgaben / Handlungen', add:'Aufgabe' },
+  { lane:'doku',     title:'Ergebnisse / Dokumentation', add:'Ergebnis' },
+  { lane:'sache',    title:'Zwischenziele', add:'Zwischenziel' },
+  { lane:'reflexion',title:'Risiken & Reflexion', add:'Risiko' },
+  { lane:'mgmt2',    title:'Projektleitung (Mgmt 2)', add:'Punkt' },
+  { lane:'mgmt1',    title:'Bereichsleitung (Mgmt 1)', add:'Punkt' },
+  { lane:'input',    title:'Experten / Input', add:'Experte' },
+  { lane:'anspruch', title:'Anspruchsgruppen', add:'Gruppe' }
+];
+let lupeIdx = -1;
+
+function phaseIndexOfX(x) { let acc = 0; for (let i = 0; i < state.phases.length; i++) { if (x < acc + state.phases[i].w) return i; acc += state.phases[i].w; } return state.phases.length - 1; }
+function laneKeyOfY(y) { return LANE_KEYS[clamp(Math.floor(y / LANE_H), 0, LANES.length - 1)]; }
+function cardsInPhaseLane(i, laneKey) { return state.postits.filter(p => phaseIndexOfX(p.x) === i && laneKeyOfY(p.y) === laneKey); }
+function addCard(i, laneKey, text, status) {
+  const li = LANE_KEYS.indexOf(laneKey), left = phaseLeft(i), w = state.phases[i].w;
+  const n = cardsInPhaseLane(i, laneKey).length;
+  const x = clamp(left + 12 + (n * 26) % Math.max(30, w - PI_W - 24), 0, canvasW(state) - PI_W);
+  const y = li * LANE_H + 8 + (n * 20) % (LANE_H - 60);
+  const card = { id: uid('p'), x, y, text: text || 'Neuer Eintrag', color: LANE_COLOR[laneKey] || PALETTE[0], status: status || 'offen' };
+  state.postits.push(card); return card;
+}
+
+const lupe = document.getElementById('lupe'), lupeBody = document.getElementById('lupeBody');
+function openLupe(i) {
+  if (previewState) return;
+  lupeIdx = i; lupe.style.display = 'block'; renderLupe();
+}
+function closeLupe() { lupe.style.display = 'none'; lupeIdx = -1; }
+document.getElementById('lupeClose').onclick = closeLupe;
+document.getElementById('lupePrev').onclick = () => { if (lupeIdx > 0) { lupeIdx--; renderLupe(); } };
+document.getElementById('lupeNext').onclick = () => { if (lupeIdx < state.phases.length - 1) { lupeIdx++; renderLupe(); } };
+lupe.addEventListener('click', e => { if (e.target === lupe) closeLupe(); });
+
+function renderLupe() {
+  const i = lupeIdx, p = state.phases[i]; if (!p) return closeLupe();
+  document.getElementById('lupeTitle').textContent = p.name;
+  document.getElementById('lupeNo').textContent = 'Phase ' + (i+1) + ' von ' + state.phases.length;
+  const gate = state.milestones.filter(m => Math.abs(clamp(m.x,0,canvasW(state)) - (phaseLeft(i)+p.w)) < p.w*0.5);
+  const eif = (k, lbl, full) => '<div class="' + (full?'full':'') + '"><label>' + lbl + '</label><textarea data-ei="' + k + '">' + esc(p[k]||'') + '</textarea></div>';
+  let h = '<div class="lupe-tools">'
+    + '<button class="lupe-tool" data-kind="schritte">&#129302; Schritte ergänzen</button>'
+    + '<button class="lupe-tool" data-kind="risiken">&#129302; Risiken (Pre-Mortem)</button>'
+    + '<button class="lupe-tool" data-kind="anspruch">&#129302; Anspruchsgruppen prüfen</button>'
+    + '<button class="lupe-tool" data-kind="zusammenfassung">&#129302; Phase zusammenfassen</button>'
+    + '</div>';
+  h += '<div id="lupeProp"></div>';
+  h += '<div class="ei-grid">' + eif('ziel','Ziel der Phase', true) + eif('input','Input') + eif('output','Output / Ergebnis') + eif('wer','Wer?') + eif('was','Was?') + eif('wann','Wann?') + eif('wie','Wie?') + '</div>';
+  if (gate.length) h += '<div style="font-size:12px;color:var(--warn);margin-top:6px">&#9670; Entscheid-Tor: ' + esc(gate.map(g=>g.label).join(' | ')) + '</div>';
+
+  LUPE_SECTIONS.forEach(sec => {
+    const cards = cardsInPhaseLane(i, sec.lane);
+    h += '<div class="lupe-sec"><h3>' + esc(sec.title) + ' <span class="cnt">' + cards.length + '</span><span class="add" data-addlane="' + sec.lane + '">+ ' + sec.add + '</span></h3>';
+    cards.forEach(c => {
+      const st = c.status || 'offen';
+      h += '<div class="tk' + (st==='erledigt'?' done':'') + '" data-id="' + c.id + '">'
+        + '<div class="tk-dot ' + st + '" title="Status: ' + STATUS_LABEL[st] + '"></div>'
+        + '<div class="tk-text" contenteditable="true" data-id="' + c.id + '">' + esc(c.text) + '</div>'
+        + '<button class="tk-ai" data-id="' + c.id + '" title="KI-Unterstützung">&#129302;</button>'
+        + '<button class="tk-del" data-id="' + c.id + '" title="löschen">&#10005;</button></div>';
+    });
+    h += '</div>';
+  });
+  lupeBody.innerHTML = h;
+}
+
+/* Interaktion in der Lupe (Delegation) */
+lupeBody.addEventListener('click', e => {
+  const dot = e.target.closest('.tk-dot');
+  if (dot) { const c = getPostit(dot.closest('.tk').dataset.id); if (c) { c.status = STATUS_NEXT[c.status||'offen']; save(); renderLupe(); render(); } return; }
+  const del = e.target.closest('.tk-del');
+  if (del) { state.postits = state.postits.filter(x => x.id !== del.dataset.id); state.connections = state.connections.filter(c => c.from !== del.dataset.id && c.to !== del.dataset.id); save(); renderLupe(); render(); return; }
+  const add = e.target.closest('.add');
+  if (add) { addCard(lupeIdx, add.dataset.addlane, 'Neuer Eintrag – Text bearbeiten', 'offen'); save(); renderLupe(); render(); return; }
+  const ai = e.target.closest('.tk-ai');
+  if (ai) { cardAI(ai.dataset.id); return; }
+  const tool = e.target.closest('.lupe-tool');
+  if (tool) { phaseTool(tool.dataset.kind); return; }
+});
+lupeBody.addEventListener('focusout', e => {
+  const tx = e.target.closest('.tk-text');
+  if (tx) { const c = getPostit(tx.dataset.id); if (c) { const v = tx.textContent.trim(); if (v && v !== c.text) { c.text = v; save(); render(); } } return; }
+  const ei = e.target.closest('[data-ei]');
+  if (ei) { const p = state.phases[lupeIdx]; if (p) { p[ei.dataset.ei] = ei.value; save(); render(); } }
+});
+
+/* KI-Unterstützung pro Aufgabe */
+async function cardAI(id) {
+  const c = getPostit(id); if (!c) return;
+  const row = lupeBody.querySelector('.tk[data-id="' + id + '"]');
+  const box = document.createElement('div');
+  box.className = 'tk-ai-box'; box.textContent = '🤖 KI denkt nach …';
+  row.after(box);
+  if (!getKey()) { box.remove(); openKeyModal(() => cardAI(id)); return; }
+  try {
+    const p = state.phases[lupeIdx];
+    const out = await callClaude(
+      'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Arbeite eine einzelne Aufgabe konkret aus: nenne die nötigen Teilschritte, das erwartete Ergebnis und worauf zu achten ist. Kurz, auf Deutsch, praxisnah. Kein Vorgeplänkel.',
+      'Projektziel: ' + (state.goal||'-') + '\nPhase: ' + p.name + '\nAufgabe: "' + c.text + '"\nBitte konkret ausarbeiten.',
+      'claude-sonnet-5', 900);
+    box.innerHTML = '<div>' + esc(out) + '</div><div class="row"><button class="take">Als Ergebnis übernehmen</button><button class="drop">Verwerfen</button></div>';
+    box.querySelector('.drop').onclick = () => box.remove();
+    box.querySelector('.take').onclick = () => {
+      const first = out.split('\n').find(l => l.trim()) || out;
+      addCard(lupeIdx, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•\d.\s]+/, ''), 'offen');
+      save(); renderLupe(); render();
+    };
+  } catch (err) { box.innerHTML = '❌ ' + esc(err.message); box.onclick = () => box.remove(); }
+}
+
+/* Phasen-Analyse-Tools (mit Freigabe) */
+async function phaseTool(kind) {
+  const prop = document.getElementById('lupeProp');
+  const p = state.phases[lupeIdx];
+  document.querySelectorAll('.lupe-tool').forEach(b => b.disabled = true);
+  if (!getKey()) { document.querySelectorAll('.lupe-tool').forEach(b => b.disabled = false); openKeyModal(() => phaseTool(kind)); return; }
+  const ctx = 'Projektziel: ' + (state.goal||'-') + '\nPhase ' + (lupeIdx+1) + ': ' + p.name
+    + '\nBereits vorhanden – Schritte: ' + cardsInPhaseLane(lupeIdx,'handlung').map(c=>c.text).join('; ')
+    + ' | Risiken: ' + cardsInPhaseLane(lupeIdx,'reflexion').map(c=>c.text).join('; ')
+    + ' | Anspruchsgruppen: ' + cardsInPhaseLane(lupeIdx,'anspruch').map(c=>c.text).join('; ');
+  try {
+    if (kind === 'zusammenfassung') {
+      prop.style.display = 'block'; prop.innerHTML = '🤖 fasst zusammen …';
+      const out = await callClaude('Du bist Projektmoderator. Fasse den Stand dieser Phase in 4–6 Sätzen zusammen: Ziel, Vorgehen, offene Punkte, Risiken. Deutsch, sachlich.', ctx + '\n\n' + wallContext(), 'claude-sonnet-5', 700);
+      prop.innerHTML = '<h4>Zusammenfassung Phase ' + (lupeIdx+1) + '</h4><div style="font-size:12.5px;white-space:pre-wrap">' + esc(out) + '</div><div class="row"><button class="drop">Schliessen</button></div>';
+      prop.querySelector('.drop').onclick = () => { prop.style.display = 'none'; };
+      return;
+    }
+    const cfgKind = {
+      schritte:  { lane:'handlung', label:'Schritte / Aufgaben', prefix:'', sys:'Nenne bis zu 5 zusätzliche, konkrete Arbeitsschritte für diese Phase, die noch fehlen. Keine Wiederholungen.' },
+      risiken:   { lane:'reflexion', label:'Risiken (Pre-Mortem)', prefix:'⚠️ ', sys:'Führe ein Pre-Mortem durch: nenne bis zu 5 konkrete Risiken/Fehlerquellen dieser Phase, die noch nicht genannt sind.' },
+      anspruch:  { lane:'anspruch', label:'Anspruchsgruppen', prefix:'👥 ', sys:'Nenne bis zu 5 betroffene oder fehlende Anspruchsgruppen/Stakeholder dieser Phase, die noch nicht genannt sind.' }
+    }[kind];
+    prop.style.display = 'block'; prop.innerHTML = '🤖 erarbeitet Vorschläge …';
+    const data = await (async () => {
+      const sys = cfgKind.sys + '\nAntworte AUSSCHLIESSLICH als JSON: {"items":["...","..."]}';
+      const t = await callClaude(sys, ctx, 'claude-sonnet-5', 800);
+      return extractJSON(t);
+    })();
+    const items = (data.items || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 6);
+    if (!items.length) { prop.innerHTML = '<h4>Keine neuen Vorschläge.</h4><div class="row"><button class="drop">Schliessen</button></div>'; prop.querySelector('.drop').onclick = () => prop.style.display='none'; return; }
+    prop.innerHTML = '<h4>Vorschläge: ' + cfgKind.label + ' (auswählen &amp; übernehmen)</h4>'
+      + items.map((t, j) => '<label><input type="checkbox" checked data-j="' + j + '"><span>' + esc(t) + '</span></label>').join('')
+      + '<div class="row"><button class="take">Übernehmen</button><button class="drop">Verwerfen</button></div>';
+    prop.querySelector('.drop').onclick = () => { prop.style.display = 'none'; };
+    prop.querySelector('.take').onclick = () => {
+      prop.querySelectorAll('input[type=checkbox]').forEach(cb => { if (cb.checked) addCard(lupeIdx, cfgKind.lane, cfgKind.prefix + items[+cb.dataset.j], 'offen'); });
+      prop.style.display = 'none'; save(); renderLupe(); render();
+    };
+  } catch (e) {
+    prop.style.display = 'block'; prop.innerHTML = '❌ ' + esc(e.message) + '<div class="row"><button class="drop">Schliessen</button></div>';
+    prop.querySelector('.drop').onclick = () => prop.style.display = 'none';
+  } finally {
+    document.querySelectorAll('.lupe-tool').forEach(b => b.disabled = false);
+  }
+}
 
 /* ---------- Supabase: Konten & Cloud-Speicher ---------- */
 function bootState(d) {
