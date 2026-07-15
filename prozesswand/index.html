@@ -45,7 +45,7 @@ header button.active { background:#e3ecf7; border-color:var(--accent); color:var
 .postit.dim { opacity:.55; }
 
 .ms-line { position:absolute; width:0; border-left:2px dashed #b3543f; z-index:6; pointer-events:none; }
-.ms-flag { position:absolute; top:4px; transform:translateX(-50%); background:#b3543f; color:#fff; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:5px; z-index:14; cursor:grab; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+.ms-flag { position:absolute; transform:translateX(-50%); background:#b3543f; color:#fff; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:5px; z-index:14; cursor:grab; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; box-shadow:0 1px 4px rgba(0,0,0,.25); }
 
 #conns { position:absolute; left:0; top:0; z-index:11; pointer-events:none; }
 #conns path.vis { fill:none; stroke:#3a4a5e; stroke-width:1.8; marker-end:url(#arr); }
@@ -262,10 +262,12 @@ function render() {
     if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
   });
 
+  const flagTop = HEADER_H + LANE_KEYS.indexOf('sache') * LANE_H + 3;
   s.milestones.forEach(m => {
     const x = LABEL_W + clamp(m.x, 0, W);
+    const short = (m.label || '').split(/\s[–-]\sKriterien/)[0];
     h += '<div class="ms-line" style="left:' + x + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
-    h += '<div class="ms-flag" data-mid="' + m.id + '" style="left:' + x + 'px" title="' + esc(m.label) + '">&#9670; ' + esc(m.label) + '</div>';
+    h += '<div class="ms-flag" data-mid="' + m.id + '" style="left:' + x + 'px;top:' + flagTop + 'px" title="' + esc(m.label) + '">&#9670; ' + esc(short) + '</div>';
   });
 
   s.postits.forEach(p => {
@@ -478,6 +480,7 @@ const KEY_STORE = 'pw-anthropic-key';
 function getKey() {
   let k = localStorage.getItem(KEY_STORE);
   if (k) return k;
+  
   for (const alt of ['anthropic-key','anthropic-api-key','claude-api-key','osto-api-key']) {
     k = localStorage.getItem(alt);
     if (k) { localStorage.setItem(KEY_STORE, k); return k; }
