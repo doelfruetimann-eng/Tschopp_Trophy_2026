@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSTO/SYMA Prozesswand</title>
+<style>
+:root { --line:#d9dde3; --muted:#6b7280; --accent:#3f6fb0; --bg:#eef0f3; --ok:#2f8a4c; --warn:#b14b46; }
+* { box-sizing:border-box; }
+html,body { margin:0; height:100%; }
+body { font:13px/1.45 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#1d2530; background:var(--bg); display:flex; flex-direction:column; }
+
+header { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#fff; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+header h1 { font-size:16px; margin:0 6px 0 0; }
+header .sub { font-size:11px; color:var(--muted); margin-right:auto; }
+header button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--line); border-radius:6px; background:#f6f7f9; padding:6px 11px; }
+header button:hover { background:#eceef2; }
+header button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+header button.primary:hover { background:#355f97; }
+header button.active { background:#e3ecf7; border-color:var(--accent); color:var(--accent); }
+.savedTag { font-size:11px; color:var(--ok); min-width:70px; text-align:right; }
+.userTag { font-size:11px; color:var(--muted); }
+
+#main { flex:1; display:flex; min-height:0; }
+#wallScroll { flex:1; overflow:auto; position:relative; }
+#wallCanvas { position:relative; background:#fff; }
+
+.lane-label { position:absolute; left:0; width:150px; padding:8px 10px; border-right:2px solid #c3c9d1; border-bottom:1px solid var(--line); background:#f8f9fb; z-index:5; cursor:default; }
+.lane-label b { display:block; font-size:11.5px; }
+.lane-label span { display:block; font-size:10px; color:var(--muted); margin-top:2px; line-height:1.3; }
+.lane-row { position:absolute; border-bottom:1px solid var(--line); z-index:1; }
+.lane-row.alt { background:#fbfcfd; }
+
+.phase-head { position:absolute; top:0; height:60px; background:#f2f5f9; border-right:1px solid var(--line); border-bottom:2px solid #c3c9d1; padding:8px 10px; z-index:8; cursor:pointer; overflow:hidden; }
+.phase-head:hover { background:#e9eef5; }
+.phase-head b { font-size:12px; display:block; }
+.phase-head small { font-size:10px; color:var(--muted); }
+.phase-resize { position:absolute; top:0; bottom:0; right:-4px; width:9px; cursor:ew-resize; z-index:9; }
+.phase-resize:hover { background:rgba(63,111,176,.3); }
+.phase-sep { position:absolute; width:0; border-left:1px dashed #ccd3dc; z-index:2; pointer-events:none; }
+
+.postit { position:absolute; width:172px; min-height:52px; padding:7px 9px; font-size:11.5px; line-height:1.35; border-radius:6px; box-shadow:0 2px 5px rgba(0,0,0,.18); cursor:grab; z-index:12; white-space:pre-wrap; word-wrap:break-word; user-select:none; }
+.postit:active { cursor:grabbing; }
+.postit.sel { outline:3px solid var(--accent); }
+.postit.dim { opacity:.55; }
+
+.ms-line { position:absolute; width:0; border-left:2px dashed #b3543f; z-index:6; pointer-events:none; }
+.ms-flag { position:absolute; top:4px; transform:translateX(-50%); background:#b3543f; color:#fff; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:5px; z-index:14; cursor:grab; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+
+#conns { position:absolute; left:0; top:0; z-index:11; pointer-events:none; }
+#conns path.vis { fill:none; stroke:#3a4a5e; stroke-width:1.8; marker-end:url(#arr); }
+#conns path.hit { fill:none; stroke:rgba(0,0,0,0); stroke-width:14; }
+body.connect #conns path.hit { pointer-events:stroke; cursor:pointer; }
+
+aside { width:332px; background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+.ki-head { padding:9px 12px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+.ki-head b { font-size:13px; }
+.ki-head button { margin-left:auto; font:inherit; font-size:11px; cursor:pointer; border:1px solid var(--line); border-radius:5px; background:#f6f7f9; padding:3px 8px; }
+#kiLog { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+.msg { max-width:95%; padding:7px 10px; border-radius:8px; font-size:12px; white-space:pre-wrap; word-wrap:break-word; }
+.msg.user { align-self:flex-end; background:#e3ecf7; }
+.msg.ai { align-self:flex-start; background:#f1f2f5; }
+.msg.sys { align-self:center; background:none; color:var(--muted); font-size:11px; text-align:center; }
+.ki-foot { border-top:1px solid var(--line); padding:8px; }
+#chatRow { display:flex; gap:6px; }
+#chatInput { flex:1; font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:none; }
+#sendBtn { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:0 14px; }
+
+#goalbar { display:flex; align-items:center; gap:10px; padding:8px 14px; background:#fff; border-top:1px solid var(--line); box-shadow:0 -1px 4px rgba(0,0,0,.06); }
+#goalbar label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); white-space:nowrap; }
+#goalInput { flex:1; font:inherit; font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; resize:none; min-height:34px; line-height:1.35; }
+#smartBtn { font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:8px 14px; }
+#smartBtn:hover { background:#355f97; }
+
+#overlay { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(20,28,40,.45); }
+.modal { background:#fff; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.25); width:430px; max-width:94vw; max-height:88vh; overflow-y:auto; padding:18px 20px; }
+.modal h3 { margin:0 0 12px; font-size:15px; }
+.modal label { display:block; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 3px; }
+.modal input[type=text], .modal input[type=password], .modal textarea, .modal select { width:100%; font:inherit; font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; resize:vertical; }
+.modal .btnrow { display:flex; gap:8px; margin-top:16px; }
+.modal .btnrow button { font:inherit; font-size:13px; font-weight:600; cursor:pointer; border-radius:7px; padding:8px 14px; border:1px solid var(--line); background:#f6f7f9; }
+.modal .btnrow .go { background:var(--accent); border-color:var(--accent); color:#fff; }
+.modal .btnrow .del { color:var(--warn); margin-left:auto; }
+.swatches { display:flex; gap:7px; margin-top:4px; }
+.swatch { width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid rgba(0,0,0,.12); }
+.swatch.sel { border-color:#1d2530; }
+
+#previewBar { position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:55; display:none; align-items:center; gap:10px; background:#233247; color:#fff; padding:10px 16px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+#previewBar b { font-size:13px; }
+#previewBar button { font:inherit; font-size:12px; font-weight:700; cursor:pointer; border:0; border-radius:6px; padding:7px 12px; }
+#pvErsetzen { background:#3fa564; color:#fff; }
+#pvErgaenzen { background:#4a7fc4; color:#fff; }
+#pvVerwerfen { background:#6b7a8d; color:#fff; }
+
+#authGate { position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center; background:var(--bg); }
+.auth-card { background:#fff; padding:28px 30px; border-radius:12px; box-shadow:0 4px 22px rgba(0,0,0,.14); width:312px; }
+.auth-card h2 { margin:0 0 4px; font-size:17px; }
+.auth-card p { margin:0 0 16px; font-size:12px; color:var(--muted); line-height:1.4; }
+.auth-card input { width:100%; font:inherit; font-size:14px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; margin-bottom:9px; }
+#authSubmit { width:100%; font:inherit; font-size:14px; font-weight:700; cursor:pointer; border:0; border-radius:7px; background:var(--accent); color:#fff; padding:10px; }
+.auth-card .link { display:block; margin:12px auto 0; font-size:12px; color:var(--accent); background:none; border:0; cursor:pointer; }
+.auth-err { color:var(--warn); font-size:12px; min-height:16px; margin-top:8px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OSTO/SYMA Prozesswand</h1>
+  <span class="sub">Zeit &rarr; horizontal &middot; Ebenen &darr; vertikal &middot; Phase anklicken = System-Ei &middot; Doppelklick = Post-it</span>
+  <span class="userTag" id="userTag"></span>
+  <button id="logoutBtn" style="display:none">Abmelden</button>
+  <span class="savedTag" id="savedTag"></span>
+  <button id="swarmBtn" class="primary">&#129302; KI-Struktur</button>
+  <button id="undoBtn" style="display:none">R&uuml;ckg&auml;ngig</button>
+  <button id="addPhase">+ Phase</button>
+  <button id="addMs">+ Meilenstein</button>
+  <button id="connectBtn">Verbinden</button>
+  <button id="exportBtn">Export</button>
+  <button id="importBtn">Import</button>
+  <input type="file" id="importFile" accept=".json" style="display:none">
+</header>
+
+<div id="main">
+  <div id="wallScroll"><div id="wallCanvas"></div></div>
+  <aside>
+    <div class="ki-head"><b>&#129302; KI-Moderator</b><button id="keyBtn">API-Schl&uuml;ssel</button></div>
+    <div id="kiLog"></div>
+    <div class="ki-foot">
+      <div id="chatRow">
+        <textarea id="chatInput" rows="2" placeholder="Frage an den KI-Moderator..."></textarea>
+        <button id="sendBtn">Senden</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="goalbar">
+  <label>Gesamtziel</label>
+  <textarea id="goalInput" rows="1" placeholder="Was soll am Ende des Projekts erreicht sein? (SMART)"></textarea>
+  <button id="smartBtn">SMART-Check</button>
+</div>
+
+<div id="previewBar">
+  <b>Vorschau des KI-Entwurfs</b>
+  <button id="pvErsetzen">Wand ersetzen</button>
+  <button id="pvErgaenzen">Erg&auml;nzen</button>
+  <button id="pvVerwerfen">Verwerfen</button>
+</div>
+
+<div id="overlay"><div class="modal" id="modalBox"></div></div>
+
+<div id="authGate">
+  <div class="auth-card" id="authForm" data-mode="login">
+    <h2 id="authTitle">Anmelden</h2>
+    <p>OSTO/SYMA Prozesswand &ndash; bitte anmelden, um deine Wand zu laden.</p>
+    <input type="email" id="authEmail" placeholder="E-Mail" autocomplete="username">
+    <input type="password" id="authPw" placeholder="Passwort" autocomplete="current-password">
+    <button id="authSubmit">Anmelden</button>
+    <button class="link" id="authToggle">Neues Konto erstellen</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+"use strict";
+
+/* ====== SUPABASE ====== */
+const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_eK2xQpV8jfkeMKcC40QDhQ_4Oj2ip--';
+
+/* ---------- OSTO/SYMA-Ebenen ---------- */
+const LANES = [
+  { key:'reflexion', title:'Reflexionsebene',       desc:'Wechselwirkungen · Störungen · Risiken' },
+  { key:'input',     title:'Inputebene',            desc:'Experten & Beeinflusser – welche / wer?' },
+  { key:'mgmt1',     title:'Managementebene 1',     desc:'Bereichsleitung · strategische Führung' },
+  { key:'mgmt2',     title:'Managementebene 2',     desc:'Projektleitung · Führung & Entscheid' },
+  { key:'sache',     title:'Sachebene',             desc:'Meilensteine & Zwischenziele · Phasenlinie' },
+  { key:'handlung',  title:'Handlungen / Aktionen', desc:'Operatives Tun · Tätigkeiten' },
+  { key:'doku',      title:'Dokumentationsebene',   desc:'Wer? Wann? Was? Wie?' },
+  { key:'anspruch',  title:'Anspruchsgruppen',      desc:'Stakeholder · Betroffene' }
+];
+const LANE_KEYS = LANES.map(l => l.key);
+const PALETTE = ['#fdf3bf','#ffd9e0','#cdeccd','#d2e4f5','#e7e3ef'];
+const LANE_COLOR = { reflexion:'#ffd9e0', input:'#fdf3bf', mgmt1:'#d2e4f5', mgmt2:'#d2e4f5', sache:'#fdf3bf', handlung:'#cdeccd', doku:'#e7e3ef', anspruch:'#ffd9e0' };
+
+const LABEL_W = 150, HEADER_H = 60, LANE_H = 104, PHASE_W = 300, PI_W = 172;
+const STORE = 'osto-prozesswand-v3';
+
+/* ---------- Zustand ---------- */
+let state, previewState = null, previewMeta = null;
+let convo = [];
+let connectMode = false, connectSrc = null;
+let undoBackup = null;
+let sb = null, currentUser = null, cloudTimer = null;
+
+function defaultState() {
+  const phases = [
+    'Auftrags- & Situationsanalyse', 'Zielanalyse', 'Lösungskonzept / Synthese',
+    'Bewertung & Entscheid', 'Umsetzung', 'Kontrolle & Feedback'
+  ].map(n => ({ id: uid('ph'), name: n, w: PHASE_W, ziel:'', input:'', output:'', wer:'', was:'', wann:'', wie:'' }));
+  const laneY = k => LANE_KEYS.indexOf(k) * LANE_H + 14;
+  const phaseX = i => i * PHASE_W + (PHASE_W - PI_W) / 2;
+  const a = { id: uid('p'), x: phaseX(1), y: laneY('sache'), text: 'Beispiel: Post-it anfassen und frei in der Zeit verschieben.', color: PALETTE[3] };
+  const b = { id: uid('p'), x: phaseX(2), y: laneY('handlung'), text: 'Beispiel: über «Verbinden» entsteht der Netzplan.', color: PALETTE[2] };
+  return {
+    goal: '', phases,
+    postits: [a, b],
+    connections: [{ id: uid('c'), from: a.id, to: b.id }],
+    milestones: [{ id: uid('m'), x: 3 * PHASE_W, label: 'Konzept-Entscheid' }],
+    laneTitles: {}
+  };
+}
+function uid(p) { return (p||'i') + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function clamp(v,a,b) { return Math.max(a, Math.min(b, v)); }
+function activeState() { return previewState || state; }
+
+function normalizeState(d) {
+  const s = {
+    goal: d.goal || '',
+    phases: Array.isArray(d.phases) ? d.phases : [],
+    postits: Array.isArray(d.postits) ? d.postits : [],
+    connections: Array.isArray(d.connections) ? d.connections : [],
+    milestones: Array.isArray(d.milestones) ? d.milestones : [],
+    laneTitles: d.laneTitles || {}
+  };
+  s.phases.forEach(p => { if (typeof p.w !== 'number' || p.w < 80) p.w = PHASE_W; });
+  return s;
+}
+function save() {
+  localStorage.setItem(STORE, JSON.stringify(state));
+  const t = document.getElementById('savedTag');
+  t.textContent = 'gespeichert'; setTimeout(() => { t.textContent = ''; }, 1300);
+  scheduleCloudSave();
+}
+
+/* ---------- Geometrie ---------- */
+function canvasW(s) { s = s || activeState(); return Math.max(600, s.phases.reduce((t, p) => t + p.w, 0)); }
+function phaseLeft(i, s) { s = s || activeState(); let x = 0; for (let k = 0; k < i && k < s.phases.length; k++) x += s.phases[k].w; return x; }
+function canvasH() { return LANES.length * LANE_H; }
+function laneTitle(l) { return activeState().laneTitles[l.key] || l.title; }
+function getPostit(id) { return activeState().postits.find(p => p.id === id); }
+
+/* ---------- Rendering ---------- */
+const canvas = document.getElementById('wallCanvas');
+function render() {
+  const s = activeState();
+  const W = canvasW(s), H = canvasH();
+  canvas.style.width = (LABEL_W + W) + 'px';
+  canvas.style.height = (HEADER_H + H) + 'px';
+  let h = '';
+
+  LANES.forEach((l, i) => {
+    h += '<div class="lane-row' + (i % 2 ? ' alt' : '') + '" data-laneidx="' + i + '" style="left:' + LABEL_W + 'px;top:' + (HEADER_H + i*LANE_H) + 'px;width:' + W + 'px;height:' + LANE_H + 'px"></div>';
+    h += '<div class="lane-label" data-lane="' + l.key + '" style="top:' + (HEADER_H + i*LANE_H) + 'px;height:' + LANE_H + 'px"><b>' + esc(laneTitle(l)) + '</b><span>' + esc(l.desc) + '</span></div>';
+  });
+
+  s.phases.forEach((p, i) => {
+    const left = LABEL_W + phaseLeft(i, s);
+    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken f&uuml;r System-Ei</small><div class="phase-resize" data-ri="' + i + '"></div></div>';
+    if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
+  });
+
+  s.milestones.forEach(m => {
+    const x = LABEL_W + clamp(m.x, 0, W);
+    h += '<div class="ms-line" style="left:' + x + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
+    h += '<div class="ms-flag" data-mid="' + m.id + '" style="left:' + x + 'px" title="' + esc(m.label) + '">&#9670; ' + esc(m.label) + '</div>';
+  });
+
+  s.postits.forEach(p => {
+    h += '<div class="postit' + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '">' + esc(p.text) + '</div>';
+  });
+
+  h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a5e"/></marker></defs>';
+  s.connections.forEach(c => {
+    const a = s.postits.find(p => p.id === c.from), b = s.postits.find(p => p.id === c.to);
+    if (!a || !b) return;
+    const ax = LABEL_W + a.x + PI_W/2, ay = HEADER_H + a.y + 28;
+    const bx = LABEL_W + b.x + PI_W/2, by = HEADER_H + b.y + 28;
+    const mx = (ax + bx) / 2;
+    const d = 'M' + ax + ',' + ay + ' C' + mx + ',' + ay + ' ' + mx + ',' + by + ' ' + bx + ',' + by;
+    h += '<path class="vis" d="' + d + '"/><path class="hit" data-cid="' + c.id + '" d="' + d + '"/>';
+  });
+  h += '</svg>';
+
+  canvas.innerHTML = h;
+}
+
+/* ---------- Interaktion (Delegation) ---------- */
+let drag = null;
+
+canvas.addEventListener('pointerdown', e => {
+  if (previewState) return;
+  const rs = e.target.closest('.phase-resize');
+  if (rs) { const i = +rs.dataset.ri; drag = { type:'resize', i, x0:e.clientX, w0: state.phases[i].w }; e.preventDefault(); return; }
+  const ms = e.target.closest('.ms-flag');
+  if (ms) { const m = state.milestones.find(x => x.id === ms.dataset.mid); drag = { type:'ms', m, x0:e.clientX, mx0:m.x, moved:false }; e.preventDefault(); return; }
+  const pi = e.target.closest('.postit');
+  if (pi && !connectMode) {
+    const p = getPostit(pi.dataset.pid);
+    drag = { type:'pi', p, el:pi, x0:e.clientX, y0:e.clientY, px0:p.x, py0:p.y, moved:false };
+    e.preventDefault();
+  }
+});
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (drag.type === 'pi') {
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    drag.p.x = clamp(drag.px0 + dx, 0, canvasW() - PI_W);
+    drag.p.y = clamp(drag.py0 + dy, 0, canvasH() - 40);
+    drag.el.style.left = (LABEL_W + drag.p.x) + 'px';
+    drag.el.style.top = (HEADER_H + drag.p.y) + 'px';
+  } else if (drag.type === 'ms') {
+    const dx = e.clientX - drag.x0;
+    if (Math.abs(dx) > 3) drag.moved = true;
+    drag.m.x = clamp(drag.mx0 + dx, 0, canvasW() - 2);
+    render();
+  } else if (drag.type === 'resize') {
+    state.phases[drag.i].w = clamp(drag.w0 + (e.clientX - drag.x0), 140, 900);
+    render();
+  }
+});
+document.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const moved = drag.moved || drag.type === 'resize';
+  drag = null;
+  if (moved) { save(); render(); }
+});
+
+canvas.addEventListener('click', e => {
+  if (previewState) return;
+  if (connectMode) {
+    const hit = e.target.closest('.hit');
+    if (hit) { state.connections = state.connections.filter(c => c.id !== hit.dataset.cid); save(); render(); return; }
+    const pi = e.target.closest('.postit');
+    if (pi) {
+      const id = pi.dataset.pid;
+      if (!connectSrc) { connectSrc = id; render(); }
+      else if (connectSrc !== id) {
+        state.connections.push({ id: uid('c'), from: connectSrc, to: id });
+        connectSrc = null; save(); render();
+      }
+      return;
+    }
+    return;
+  }
+  const ph = e.target.closest('.phase-head');
+  if (ph && !e.target.closest('.phase-resize')) openPhaseModal(+ph.dataset.pi);
+});
+
+canvas.addEventListener('dblclick', e => {
+  if (previewState) return;
+  const pi = e.target.closest('.postit');
+  if (pi) { openPostitModal(pi.dataset.pid); return; }
+  const ms = e.target.closest('.ms-flag');
+  if (ms) { openMilestoneModal(ms.dataset.mid); return; }
+  const ll = e.target.closest('.lane-label');
+  if (ll) { openLaneModal(ll.dataset.lane); return; }
+  const row = e.target.closest('.lane-row');
+  if (row) {
+    const r = canvas.getBoundingClientRect();
+    const x = clamp(e.clientX - r.left - LABEL_W - PI_W/2, 0, canvasW() - PI_W);
+    const y = clamp(e.clientY - r.top - HEADER_H - 20, 0, canvasH() - 40);
+    const laneIdx = +row.dataset.laneidx;
+    const np = { id: uid('p'), x, y, text: 'Neues Post-it – Doppelklick zum Bearbeiten', color: LANE_COLOR[LANE_KEYS[laneIdx]] || PALETTE[0] };
+    state.postits.push(np); save(); render(); openPostitModal(np.id);
+  }
+});
+
+/* ---------- Modals ---------- */
+const overlay = document.getElementById('overlay'), modalBox = document.getElementById('modalBox');
+function openModal(html) { modalBox.innerHTML = html; overlay.style.display = 'flex'; }
+function closeModal() { overlay.style.display = 'none'; modalBox.innerHTML = ''; }
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+function openPostitModal(id) {
+  const p = getPostit(id); if (!p) return;
+  let sw = ''; PALETTE.forEach(c => { sw += '<div class="swatch' + (p.color === c ? ' sel' : '') + '" data-c="' + c + '" style="background:' + c + '"></div>'; });
+  openModal('<h3>Post-it bearbeiten</h3><label>Text</label><textarea id="mText" rows="4">' + esc(p.text) + '</textarea><label>Farbe</label><div class="swatches">' + sw + '</div><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
+  modalBox.querySelectorAll('.swatch').forEach(el => el.onclick = () => { modalBox.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); });
+  document.getElementById('mSave').onclick = () => {
+    p.text = document.getElementById('mText').value;
+    const sel = modalBox.querySelector('.swatch.sel'); if (sel) p.color = sel.dataset.c;
+    save(); render(); closeModal();
+  };
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mDel').onclick = () => {
+    state.postits = state.postits.filter(x => x.id !== id);
+    state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+    save(); render(); closeModal();
+  };
+}
+
+function openPhaseModal(i) {
+  const p = state.phases[i]; if (!p) return;
+  const f = (k, lbl) => '<label>' + lbl + '</label><textarea id="ei_' + k + '" rows="2">' + esc(p[k] || '') + '</textarea>';
+  openModal('<h3>System-Ei &ndash; Phase ' + (i+1) + '</h3><label>Phasen-Name</label><input type="text" id="ei_name" value="' + esc(p.name) + '">'
+    + f('ziel','Ziel der Phase') + f('input','Input (was kommt rein?)') + f('output','Output / Ergebnis') + f('wer','Wer?') + f('was','Was?') + f('wann','Wann?') + f('wie','Wie?')
+    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">Phase l&ouml;schen</button></div>');
+  document.getElementById('mSave').onclick = () => {
+    p.name = document.getElementById('ei_name').value || p.name;
+    ['ziel','input','output','wer','was','wann','wie'].forEach(k => { p[k] = document.getElementById('ei_' + k).value; });
+    save(); render(); closeModal();
+  };
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mDel').onclick = () => {
+    if (state.phases.length <= 1) { closeModal(); return; }
+    state.phases.splice(i, 1); save(); render(); closeModal();
+  };
+}
+
+function openMilestoneModal(id) {
+  const m = state.milestones.find(x => x.id === id); if (!m) return;
+  openModal('<h3>Meilenstein</h3><label>Bezeichnung</label><input type="text" id="mLabel" value="' + esc(m.label) + '"><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
+  document.getElementById('mSave').onclick = () => { m.label = document.getElementById('mLabel').value || m.label; save(); render(); closeModal(); };
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mDel').onclick = () => { state.milestones = state.milestones.filter(x => x.id !== id); save(); render(); closeModal(); };
+}
+
+function openLaneModal(key) {
+  const l = LANES.find(x => x.key === key); if (!l) return;
+  openModal('<h3>Ebene umbenennen</h3><label>Titel</label><input type="text" id="mLane" value="' + esc(laneTitle(l)) + '"><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button></div>');
+  document.getElementById('mSave').onclick = () => {
+    const v = document.getElementById('mLane').value.trim();
+    if (v && v !== l.title) state.laneTitles[key] = v; else delete state.laneTitles[key];
+    save(); render(); closeModal();
+  };
+  document.getElementById('mCancel').onclick = closeModal;
+}
+
+/* ---------- Kopfleisten-Knöpfe ---------- */
+document.getElementById('addPhase').onclick = () => {
+  if (previewState) return;
+  state.phases.push({ id: uid('ph'), name: 'Neue Phase', w: PHASE_W, ziel:'', input:'', output:'', wer:'', was:'', wann:'', wie:'' });
+  save(); render();
+};
+document.getElementById('addMs').onclick = () => {
+  if (previewState) return;
+  const sc = document.getElementById('wallScroll');
+  const x = clamp(sc.scrollLeft + sc.clientWidth/2 - LABEL_W, 40, canvasW() - 40);
+  state.milestones.push({ id: uid('m'), x, label: 'Meilenstein' });
+  save(); render();
+};
+document.getElementById('connectBtn').onclick = () => {
+  connectMode = !connectMode; connectSrc = null;
+  document.getElementById('connectBtn').classList.toggle('active', connectMode);
+  document.body.classList.toggle('connect', connectMode);
+  render();
+  sysMsg(connectMode ? 'Verbinden: erst Quelle, dann Ziel anklicken. Klick auf eine Linie löscht sie.' : 'Verbinden beendet.');
+};
+document.getElementById('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'prozesswand-export.json'; a.click();
+  URL.revokeObjectURL(a.href);
+};
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { state = normalizeState(JSON.parse(r.result)); save(); goalInput.value = state.goal || ''; render(); sysMsg('Import erfolgreich.'); }
+    catch (err) { sysMsg('Import fehlgeschlagen: ' + err.message); }
+  };
+  r.readAsText(f); e.target.value = '';
+});
+document.getElementById('undoBtn').onclick = () => {
+  if (!undoBackup) return;
+  state = normalizeState(JSON.parse(undoBackup)); undoBackup = null;
+  document.getElementById('undoBtn').style.display = 'none';
+  goalInput.value = state.goal || ''; save(); render(); sysMsg('Vorheriger Stand wiederhergestellt.');
+};
+
+/* ---------- KI: Schlüssel & API ---------- */
+const KEY_STORE = 'pw-anthropic-key';
+function getKey() {
+  let k = localStorage.getItem(KEY_STORE);
+  if (k) return k;
+  for (const alt of ['anthropic-key','anthropic-api-key','claude-api-key','osto-api-key']) {
+    k = localStorage.getItem(alt);
+    if (k) { localStorage.setItem(KEY_STORE, k); return k; }
+  }
+  return '';
+}
+function openKeyModal(then) {
+  openModal('<h3>Anthropic API-Schl&uuml;ssel</h3><p style="font-size:12px;color:var(--muted)">Wird nur in diesem Browser gespeichert. Schl&uuml;ssel gibt es unter console.anthropic.com &rarr; API Keys.</p><label>Schl&uuml;ssel</label><input type="password" id="mKey" value="' + esc(getKey()) + '" placeholder="sk-ant-..."><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button></div>');
+  document.getElementById('mSave').onclick = () => {
+    const v = document.getElementById('mKey').value.trim();
+    if (v) localStorage.setItem(KEY_STORE, v);
+    closeModal();
+    if (v && then) then();
+  };
+  document.getElementById('mCancel').onclick = closeModal;
+}
+document.getElementById('keyBtn').onclick = () => openKeyModal(null);
+
+async function callClaude(system, user, model, maxTok) {
+  const key = getKey();
+  if (!key) throw new Error('Kein API-Schlüssel hinterlegt.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model, max_tokens: maxTok || 2000, system, messages: [{ role: 'user', content: user }] })
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
+  return (data.content || []).map(b => b.text || '').join('');
+}
+
+/* ---------- KI-Moderator (Chat) ---------- */
+const kiLog = document.getElementById('kiLog');
+function addMsg(cls, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls; d.textContent = text;
+  kiLog.appendChild(d); kiLog.scrollTop = kiLog.scrollHeight;
+  return d;
+}
+function sysMsg(t) { addMsg('sys', t); }
+
+function wallContext() {
+  const s = state;
+  let t = 'Gesamtziel: ' + (s.goal || '(noch leer)') + '\nPhasen: ' + s.phases.map((p, i) => (i+1) + '. ' + p.name).join(' | ');
+  t += '\nMeilensteine: ' + (s.milestones.map(m => m.label).join(', ') || 'keine');
+  LANES.forEach(l => {
+    const items = s.postits.filter(p => Math.floor(p.y / LANE_H) === LANE_KEYS.indexOf(l.key));
+    if (items.length) t += '\n' + laneTitle(l) + ': ' + items.map(p => '«' + p.text.slice(0, 80) + '»').join('; ');
+  });
+  return t;
+}
+const MODERATOR_SYS = 'Du bist der KI-Moderator einer OSTO/SYMA-Prozesswand (Projektmoderation nach Systems Engineering). '
+  + 'Du hilfst mit W-Fragen (wer, was, wann, wie, warum), machst auf Lücken aufmerksam und strukturierst. Du bewertest nicht und entscheidest nicht. '
+  + 'Antworte knapp, konkret und auf Deutsch. Aktueller Stand der Wand:\n\n';
+
+async function runChat(prompt, label) {
+  addMsg('user', label || prompt);
+  const wait = addMsg('sys', '… denkt nach …');
+  try {
+    convo.push({ role: 'user', content: prompt });
+    if (convo.length > 12) convo = convo.slice(-12);
+    const key = getKey();
+    if (!key) { wait.remove(); openKeyModal(() => runChat(prompt, label)); return; }
+    const hist = convo.map(m => (m.role === 'user' ? 'Nutzer: ' : 'Moderator: ') + m.content).join('\n\n');
+    const out = await callClaude(MODERATOR_SYS + wallContext(), hist, 'claude-sonnet-5', 1500);
+    convo.push({ role: 'assistant', content: out });
+    wait.remove(); addMsg('ai', out);
+  } catch (e) { wait.remove(); addMsg('sys', '❌ ' + e.message); }
+}
+document.getElementById('sendBtn').onclick = () => {
+  const v = document.getElementById('chatInput').value.trim();
+  if (!v) return;
+  document.getElementById('chatInput').value = '';
+  runChat(v);
+};
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('sendBtn').click(); }
+});
+
+/* ---------- Gesamtziel-Leiste ---------- */
+const goalInput = document.getElementById('goalInput');
+function autoResizeGoal() { goalInput.style.height = 'auto'; goalInput.style.height = Math.min(goalInput.scrollHeight, 88) + 'px'; }
+goalInput.addEventListener('input', () => { state.goal = goalInput.value; autoResizeGoal(); save(); });
+document.getElementById('smartBtn').onclick = () => {
+  const g = (state.goal || '').trim();
+  if (!g) { goalInput.focus(); return; }
+  runChat('Prüfe dieses Gesamtziel auf SMART. Geh die fünf Kriterien einzeln durch – Spezifisch, Messbar, '
+    + 'Attraktiv, Realistisch, Terminiert – zeige, was erfüllt ist und was fehlt, und stelle W-Fragen zu den Lücken. '
+    + 'Bewerte nicht. Gesamtziel: "' + g + '"', '[SMART-Check] ' + g.slice(0, 50));
+};
+
+/* ================================================================
+   AGENTEN-SCHWARM  „Projekt strukturieren (KI)"
+   ================================================================ */
+const METHODIK = 'PHASENMODELL (Basis: Systems Engineering / Wiegand «Handbuch Planungserfolg», Praxis D. Rütimann):\n'
++ '1. VORBEREITUNG: Problemerfassung → Aufgabenanalyse → Ziel-/Ergebnisdefinition → Machbarkeitsabklärung → ENTSCHEID (weiterfahren/sistieren) → Projektplanung («Planung der Planung»). Outputs auf Dokumentationsebene: erfasstes Problem, Kenntnis der Aufgabe / eindeutiger Auftrag, definiertes Ziel & Erwartung, geklärte Machbarkeit, geplantes Projekt.\n'
++ '2. SITUATIONSANALYSE: Systemuntersuchung & Abgrenzung (→ positioniertes System), Analyse Ist-Situation (→ Aussage Ist-Situation = Datenbasis), Analyse zukünftige Entwicklung, Ableitung von Folgerungen.\n'
++ '3. ZIELFORMULIERUNG (SMART). 4. LÖSUNGSKONZEPT/SYNTHESE (2–3 Varianten parallel offen halten, erst mit Wissen ausdünnen). 5. BEWERTUNG & ENTSCHEID. 6. UMSETZUNG. 7. KONTROLLE & FEEDBACK / ABSCHLUSS.\n'
++ 'Phasen dürfen dem Projekt angepasst und umbenannt werden – die Logik bleibt.\n\n'
++ 'REGELN:\n'
++ '- Jeder Schritt: Input → Bearbeitung → Output. Outputs gehören als Ergebnisse auf die DOKUMENTATIONSEBENE.\n'
++ '- Jede Phase endet mit einem ENTSCHEID-TOR (Gate) mit vorab definierten, messbaren Kriterien (weiterfahren / zurück / sistieren).\n'
++ '- Rückkopplungen zwischen Sachebene, Managementebenen und Dokumentationsebene explizit einplanen.\n'
++ '- Pre-Mortem am Phasenstart («Was könnte schiefgehen?») und Retrospektive am Phasenende → REFLEXIONSEBENE.\n'
++ '- Anspruchsgruppen-Check je Phase: Wer ist betroffen? Wer fehlt? → ANSPRUCHSGRUPPEN-Ebene. Review-Punkte mit Anspruchsgruppen fest einplanen.\n'
++ '- Rollende Planung: nahe Phasen fein, ferne Phasen bewusst grob.\n'
++ '- Managementebene 1 = Bereichsleitung/strategisch; Managementebene 2 = Projektleitung/operativ; Inputebene = Experten & Beeinflusser.\n'
++ '- Sprache: Deutsch, kurz und konkret (Post-it-Stil, max. 12 Wörter pro Karte).';
+
+const MODELS = { architekt: 'claude-sonnet-5', planer: 'claude-haiku-4-5-20251001', kritiker: 'claude-sonnet-5', verbinder: 'claude-haiku-4-5-20251001' };
+const MODEL_FALLBACK = 'claude-sonnet-5';
+
+async function agentCall(role, system, user, maxTok) {
+  try { return await callClaude(system, user, MODELS[role], maxTok); }
+  catch (e) {
+    if (/model/i.test(e.message) && MODELS[role] !== MODEL_FALLBACK) return await callClaude(system, user, MODEL_FALLBACK, maxTok);
+    throw e;
+  }
+}
+function extractJSON(t) {
+  t = t.replace(/```json/gi, '```').replace(/```/g, '');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) throw new Error('Keine JSON-Antwort erhalten.');
+  return JSON.parse(t.slice(a, b + 1));
+}
+async function agentJSON(role, system, user, maxTok) {
+  const sys = system + '\n\nAntworte AUSSCHLIESSLICH mit gültigem JSON, ohne Erklärtext.';
+  try { return extractJSON(await agentCall(role, sys, user, maxTok)); }
+  catch (e) {
+    if (e instanceof SyntaxError || /JSON/.test(e.message)) {
+      return extractJSON(await agentCall(role, sys, user + '\n\nWICHTIG: Nur gültiges JSON ausgeben.', maxTok));
+    }
+    throw e;
+  }
+}
+
+document.getElementById('swarmBtn').onclick = () => {
+  if (previewState) return;
+  openModal('<h3>&#129302; Projekt strukturieren (KI)</h3>'
+    + '<p style="font-size:12px;color:var(--muted);margin:0">Vier Agenten (Architekt &rarr; Planer &rarr; Kritiker &rarr; Verbinder) bauen einen Entwurf nach deiner Methodik. Du siehst zuerst eine Vorschau.</p>'
+    + '<label>Gesamtziel</label><textarea id="swZiel" rows="3">' + esc(state.goal || '') + '</textarea>'
+    + '<label>Zeitrahmen</label><input type="text" id="swZeit" placeholder="z.B. Januar bis Juni 2027, 6 Monate">'
+    + '<label>Kontext / Projektart</label><textarea id="swKontext" rows="3" placeholder="z.B. Umbau Mehrfamilienhaus, Budget 1.2 Mio, Bauherrschaft privat, Bewilligung nötig"></textarea>'
+    + '<label>Detailtiefe</label><select id="swTiefe"><option value="grob">grob (Überblick)</option><option value="mittel" selected>mittel</option><option value="fein">fein (detailliert)</option></select>'
+    + '<div class="btnrow"><button class="go" id="swStart">Schwarm starten</button><button id="mCancel">Abbrechen</button></div>');
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('swStart').onclick = () => {
+    const cfg = {
+      ziel: document.getElementById('swZiel').value.trim(),
+      zeit: document.getElementById('swZeit').value.trim(),
+      kontext: document.getElementById('swKontext').value.trim(),
+      tiefe: document.getElementById('swTiefe').value
+    };
+    if (!cfg.ziel) { document.getElementById('swZiel').focus(); return; }
+    closeModal();
+    if (!getKey()) { openKeyModal(() => runSwarm(cfg)); return; }
+    runSwarm(cfg);
+  };
+};
+
+async function runSwarm(cfg) {
+  const TIEFE_N = { grob: 3, mittel: 4, fein: 6 };
+  try {
+    sysMsg('🏛️ Architekt-Agent plant Phasen und Entscheid-Tore …');
+    const arch = await agentJSON('architekt',
+      'Du bist der ARCHITEKT-Agent. Du stückelst ein Projekt in Phasen nach dieser Methodik:\n\n' + METHODIK
+      + '\n\nErzeuge 4–8 projektspezifische Phasen. Format:\n{"phasen":[{"name":"...","anteil":15,"gate":{"name":"Entscheid: ...","kriterien":["messbares Kriterium 1","Kriterium 2"]}}]}\n"anteil" = geschätzter Anteil an der Projektdauer in Prozent (Summe ≈ 100).',
+      'Gesamtziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || 'keiner angegeben') + '\nDetailtiefe: ' + cfg.tiefe, 2500);
+    if (!arch || !Array.isArray(arch.phasen) || arch.phasen.length < 3) throw new Error('Architekt lieferte keine brauchbare Phasenstruktur.');
+    const phasen = arch.phasen.slice(0, 8);
+    sysMsg('✅ ' + phasen.length + ' Phasen: ' + phasen.map(p => p.name).join(' → '));
+
+    const plaene = [];
+    for (let i = 0; i < phasen.length; i++) {
+      const fein = i < 2 ? cfg.tiefe : 'grob';
+      const nMax = TIEFE_N[fein];
+      sysMsg('📋 Planer-Agent: Phase ' + (i+1) + ' – ' + phasen[i].name + ' (' + fein + ') …');
+      let plan = null;
+      for (let att = 0; att < 2 && !plan; att++) {
+        try {
+          plan = await agentJSON('planer',
+            'Du bist der PLANER-Agent. Du planst EINE Phase nach dieser Methodik:\n\n' + METHODIK
+            + '\n\nFormat:\n{"ei":{"ziel":"...","input":"...","output":"...","wer":"...","was":"...","wann":"...","wie":"..."},'
+            + '"schritte":["..."],"ergebnisse":["..."],"management":["..."],"zwischenziele":["..."],"experten":["..."]}\n'
+            + 'Max. ' + nMax + ' schritte, max. 3 ergebnisse, max. 2 management, max. 2 zwischenziele, max. 2 experten. Detailtiefe: ' + fein + '.',
+            'Projektziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || '-')
+            + '\nPhase ' + (i+1) + ' von ' + phasen.length + ': ' + phasen[i].name
+            + '\nGate am Phasenende: ' + (phasen[i].gate && phasen[i].gate.name || 'Entscheid')
+            + (i > 0 ? '\nErgebnisse der Vorphase: ' + (plaene[i-1] && plaene[i-1].ergebnisse || []).join('; ') : ''), 2500);
+        } catch (e) { if (att === 1) sysMsg('⚠️ Phase ' + (i+1) + ' übersprungen: ' + e.message); }
+      }
+      plaene.push(plan || { ei: {}, schritte: [], ergebnisse: [], management: [], zwischenziele: [], experten: [] });
+    }
+
+    sysMsg('🔍 Kritiker-Agent: Pre-Mortem, Retro & Anspruchsgruppen-Check …');
+    let kritik = null;
+    try {
+      kritik = await agentJSON('kritiker',
+        'Du bist der KRITIKER-Agent (Pre-Mortem und Anspruchsgruppen-Check) nach dieser Methodik:\n\n' + METHODIK
+        + '\n\nFormat:\n{"phasen":[{"index":0,"risiken":["..."],"retro":"...","anspruchsgruppen":["..."],"review":"..."}]}\n'
+        + 'Je Phase: max. 2 risiken (Pre-Mortem, konkret), 1 retro-Frage, max. 3 anspruchsgruppen (wer betroffen/wer fehlt), 1 review (Review-Punkt mit Anspruchsgruppen).',
+        'Projektziel: ' + cfg.ziel + '\nKontext: ' + (cfg.kontext || '-') + '\nPhasen:\n'
+        + phasen.map((p, i) => (i) + ': ' + p.name + ' | Schritte: ' + (plaene[i].schritte || []).join('; ')).join('\n'), 3000);
+    } catch (e) { sysMsg('⚠️ Kritiker übersprungen: ' + e.message); }
+
+    const pv = buildPreview(cfg, phasen, plaene, kritik);
+
+    sysMsg('🔗 Verbinder-Agent knüpft Ablauf und Rückkopplungen …');
+    try {
+      const liste = pv.cards.map(c => c.key + ' [' + c.lane + ', Phase ' + (c.phase+1) + ']: ' + c.text.slice(0, 60)).join('\n');
+      const verb = await agentJSON('verbinder',
+        'Du bist der VERBINDER-Agent. Du verbindest Karten einer Prozesswand zu einem Netzplan (Vorgänger → Nachfolger), inklusive Rückkopplungen von Ergebnissen zur Management- oder Sachebene.\n'
+        + 'Format: {"verbindungen":[["K1","K2"],["K2","K5"]]}\nMax. ' + Math.min(24, pv.cards.length * 2) + ' Verbindungen, nur sinnvolle.',
+        'Karten:\n' + liste, 1800);
+      if (verb && Array.isArray(verb.verbindungen)) {
+        const byKey = {}; pv.cards.forEach(c => { byKey[c.key] = c.id; });
+        verb.verbindungen.forEach(v => {
+          if (Array.isArray(v) && byKey[v[0]] && byKey[v[1]] && v[0] !== v[1])
+            pv.state.connections.push({ id: uid('c'), from: byKey[v[0]], to: byKey[v[1]] });
+        });
+      }
+    } catch (e) { sysMsg('⚠️ Verbinder übersprungen – Standard-Kette wird genutzt.'); }
+    if (!pv.state.connections.length) {
+      for (let i = 0; i + 1 < pv.chain.length; i++)
+        pv.state.connections.push({ id: uid('c'), from: pv.chain[i], to: pv.chain[i+1] });
+    }
+
+    previewState = pv.state; previewMeta = cfg;
+    document.getElementById('previewBar').style.display = 'flex';
+    render();
+    sysMsg('✅ Entwurf fertig: ' + pv.state.postits.length + ' Post-its, ' + pv.state.connections.length + ' Verbindungen, ' + pv.state.milestones.length + ' Gates. Oben wählen: Ersetzen, Ergänzen oder Verwerfen.');
+  } catch (e) {
+    sysMsg('❌ Schwarm abgebrochen: ' + e.message);
+  }
+}
+
+function buildPreview(cfg, phasen, plaene, kritik) {
+  const totalW = Math.max(phasen.length, 6) * PHASE_W;
+  const sumAnteil = phasen.reduce((t, p) => t + (typeof p.anteil === 'number' && p.anteil > 0 ? p.anteil : 100 / phasen.length), 0);
+  const st = { goal: cfg.ziel, phases: [], postits: [], connections: [], milestones: [], laneTitles: Object.assign({}, state.laneTitles) };
+  phasen.forEach((p, i) => {
+    const anteil = (typeof p.anteil === 'number' && p.anteil > 0 ? p.anteil : 100 / phasen.length) / sumAnteil;
+    const ei = plaene[i].ei || {};
+    st.phases.push({ id: uid('ph'), name: p.name, w: clamp(Math.round(totalW * anteil), 220, 640),
+      ziel: ei.ziel || '', input: ei.input || '', output: ei.output || '', wer: ei.wer || '', was: ei.was || '', wann: ei.wann || '', wie: ei.wie || '' });
+  });
+
+  const laneCount = {};
+  const cards = [], chain = [];
+  let kn = 0;
+  function put(phaseIdx, laneKey, text, toChain) {
+    const li = LANE_KEYS.indexOf(laneKey);
+    const left = phaseLeft(phaseIdx, st), w = st.phases[phaseIdx].w;
+    const ck = phaseIdx + '|' + laneKey;
+    const k = laneCount[ck] = (laneCount[ck] || 0) + 1;
+    const x = clamp(left + 10 + ((k-1) * 28) % Math.max(40, w - PI_W - 20), 0, canvasW(st) - PI_W);
+    const y = li * LANE_H + 6 + ((k-1) * 22) % (LANE_H - 62);
+    const id = uid('p');
+    st.postits.push({ id, x, y, text, color: LANE_COLOR[laneKey] || PALETTE[0] });
+    kn++; cards.push({ key: 'K' + kn, id, lane: laneKey, phase: phaseIdx, text });
+    if (toChain) chain.push(id);
+    return id;
+  }
+
+  phasen.forEach((p, i) => {
+    const pl = plaene[i], kr = kritik && Array.isArray(kritik.phasen) ? (kritik.phasen.find(x => x.index === i) || {}) : {};
+    (kr.risiken || []).slice(0, 2).forEach(t => put(i, 'reflexion', '⚠️ ' + t));
+    if (kr.retro) put(i, 'reflexion', '↻ Retro: ' + kr.retro);
+    (pl.experten || []).slice(0, 2).forEach(t => put(i, 'input', '💡 ' + t));
+    (pl.management || []).slice(0, 2).forEach((t, j) => put(i, j === 0 ? 'mgmt2' : 'mgmt1', '🧭 ' + t));
+    (pl.zwischenziele || []).slice(0, 2).forEach(t => put(i, 'sache', '🎯 ' + t));
+    (pl.schritte || []).slice(0, 6).forEach(t => put(i, 'handlung', t, true));
+    (pl.ergebnisse || []).slice(0, 3).forEach(t => put(i, 'doku', '📄 ' + t));
+    (kr.anspruchsgruppen || []).slice(0, 3).forEach(t => put(i, 'anspruch', '👥 ' + t));
+    if (kr.review) put(i, 'anspruch', '👥 Review: ' + kr.review);
+    const gateName = (p.gate && p.gate.name) || ('Entscheid Phase ' + (i+1));
+    const krit = p.gate && Array.isArray(p.gate.kriterien) && p.gate.kriterien.length ? ' – Kriterien: ' + p.gate.kriterien.join('; ') : '';
+    st.milestones.push({ id: uid('m'), x: clamp(phaseLeft(i, st) + st.phases[i].w - 4, 20, canvasW(st) - 4), label: gateName + krit });
+  });
+
+  return { state: st, cards, chain };
+}
+
+/* ---------- Vorschau übernehmen / verwerfen ---------- */
+function endPreview() {
+  previewState = null; previewMeta = null;
+  document.getElementById('previewBar').style.display = 'none';
+}
+document.getElementById('pvVerwerfen').onclick = () => { endPreview(); render(); sysMsg('Entwurf verworfen – deine Wand ist unverändert.'); };
+document.getElementById('pvErsetzen').onclick = () => {
+  undoBackup = JSON.stringify(state);
+  state = previewState;
+  endPreview();
+  document.getElementById('undoBtn').style.display = '';
+  goalInput.value = state.goal || ''; autoResizeGoal();
+  save(); render();
+  sysMsg('✅ Wand ersetzt. «Rückgängig» oben stellt den vorherigen Stand wieder her.');
+};
+document.getElementById('pvErgaenzen').onclick = () => {
+  undoBackup = JSON.stringify(state);
+  const pv = previewState;
+  const maxX = canvasW(state) - PI_W - 4;
+  pv.postits.forEach(p => { state.postits.push({ id: p.id, x: clamp(p.x, 0, maxX), y: p.y, text: p.text, color: p.color }); });
+  pv.connections.forEach(c => state.connections.push(c));
+  pv.milestones.forEach(m => state.milestones.push({ id: m.id, x: clamp(m.x, 0, canvasW(state) - 4), label: m.label }));
+  state.phases.forEach((p, i) => {
+    const q = pv.phases[i]; if (!q) return;
+    ['ziel','input','output','wer','was','wann','wie'].forEach(k => { if (!p[k] && q[k]) p[k] = q[k]; });
+  });
+  if (!state.goal && pv.goal) { state.goal = pv.goal; goalInput.value = pv.goal; autoResizeGoal(); }
+  endPreview();
+  document.getElementById('undoBtn').style.display = '';
+  save(); render();
+  sysMsg('✅ Entwurf ergänzt (bestehende Post-its blieben erhalten). «Rückgängig» stellt den vorherigen Stand wieder her.');
+};
+
+/* ---------- Supabase: Konten & Cloud-Speicher ---------- */
+function bootState(d) {
+  state = (d && Array.isArray(d.phases) && d.phases.length) ? normalizeState(d) : defaultState();
+  goalInput.value = state.goal || '';
+  autoResizeGoal();
+  render();
+}
+async function loadFromCloud() {
+  try {
+    const { data, error } = await sb.from('walls').select('data').eq('user_id', currentUser.id).maybeSingle();
+    if (error) throw error;
+    bootState(data && data.data);
+    sysMsg('Willkommen! Wand geladen. Der Knopf «🤖 KI-Struktur» startet den Agenten-Schwarm.');
+  } catch (e) {
+    bootState(defaultState());
+    sysMsg('Cloud-Laden fehlgeschlagen: ' + (e.message || e));
+  }
+}
+async function cloudSave() {
+  if (!sb || !currentUser) return;
+  try {
+    const { error } = await sb.from('walls').upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  } catch (e) { /* lokale Kopie bleibt erhalten */ }
+}
+function scheduleCloudSave() {
+  if (!sb || !currentUser) return;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(cloudSave, 1500);
+}
+
+/* ---------- Auth-Gate ---------- */
+const authGate = document.getElementById('authGate');
+function showAuth(msg) {
+  authGate.style.display = 'flex';
+  if (msg !== undefined) document.getElementById('authErr').textContent = msg;
+}
+async function startApp(user) {
+  currentUser = user;
+  document.getElementById('userTag').textContent = user.email || '';
+  document.getElementById('logoutBtn').style.display = '';
+  authGate.style.display = 'none';
+  await loadFromCloud();
+}
+async function initAuth() {
+  if (!window.supabase) {
+    bootState(defaultState());
+    showAuth('Keine Verbindung zum Anmelde-Dienst. Internetverbindung prüfen und Seite neu laden.');
+    return;
+  }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  bootState(defaultState());
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) { startApp(data.session.user); return; }
+  } catch (e) {}
+  showAuth('');
+}
+document.getElementById('authSubmit').onclick = async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const pw = document.getElementById('authPw').value;
+  const err = document.getElementById('authErr');
+  err.textContent = '';
+  if (!sb) { err.textContent = 'Keine Verbindung zum Anmelde-Dienst.'; return; }
+  if (!email || !pw) { err.textContent = 'Bitte E-Mail und Passwort eingeben.'; return; }
+  const register = document.getElementById('authForm').dataset.mode === 'register';
+  try {
+    if (register) {
+      const { data, error } = await sb.auth.signUp({ email, password: pw });
+      if (error) throw error;
+      if (data.session) startApp(data.session.user);
+      else err.textContent = 'Konto erstellt – bitte E-Mail bestätigen, dann anmelden.';
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+      if (error) throw error;
+      startApp(data.user);
+    }
+  } catch (e) { err.textContent = e.message || String(e); }
+};
+document.getElementById('authToggle').onclick = () => {
+  const f = document.getElementById('authForm');
+  const toRegister = f.dataset.mode !== 'register';
+  f.dataset.mode = toRegister ? 'register' : 'login';
+  document.getElementById('authTitle').textContent = toRegister ? 'Konto erstellen' : 'Anmelden';
+  document.getElementById('authSubmit').textContent = toRegister ? 'Registrieren' : 'Anmelden';
+  document.getElementById('authToggle').textContent = toRegister ? 'Schon ein Konto? Anmelden' : 'Neues Konto erstellen';
+  document.getElementById('authErr').textContent = '';
+};
+document.getElementById('authPw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('authSubmit').click();
+});
+document.getElementById('logoutBtn').onclick = async () => {
+  try { if (sb) await sb.auth.signOut(); } catch (e) {}
+  location.reload();
+};
+
+/* ---------- Start ---------- */
+initAuth();
+</script>
+</body>
+</html>
