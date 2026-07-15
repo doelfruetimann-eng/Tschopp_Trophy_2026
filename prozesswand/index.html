@@ -84,6 +84,22 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 .swatches { display:flex; gap:7px; margin-top:4px; }
 .swatch { width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid rgba(0,0,0,.12); }
 .swatch.sel { border-color:#1d2530; }
+.modal.wide { width:720px; max-width:96vw; }
+.ei-wrap { display:grid; grid-template-columns:1fr 22px 1.5fr 22px 1fr; align-items:center; gap:6px; margin-top:8px; }
+.ei-col label { display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:3px; }
+.ei-col textarea { width:100%; font:inherit; font-size:11.5px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; }
+.ei-in textarea, .ei-out textarea { min-height:150px; background:#f4f8ff; }
+.ei-flow { text-align:center; color:var(--accent); font-size:20px; font-weight:700; }
+.ei-egg { border:3px solid var(--accent); border-radius:50% / 44%; background:linear-gradient(#f6faff,#eef4fc); padding:26px 30px; box-shadow:inset 0 0 0 6px #fff; }
+.ei-egg .ei-egg-h { text-align:center; font-size:10px; font-weight:700; letter-spacing:.6px; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+.ei-egg .ei-ziel { width:100%; font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:44px; background:#fffef4; }
+.ei-w { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:8px; }
+.ei-w label { font-size:9.5px; }
+.ei-w textarea { min-height:40px; }
+.ei-anspruch { margin-top:16px; border:2px dashed #c98; border-radius:10px; padding:9px 12px; background:#fff7f4; }
+.ei-anspruch .h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#a5643f; margin-bottom:5px; }
+.ei-chip { display:inline-block; background:#ffd9e0; border:1px solid #f0b8c2; border-radius:13px; padding:3px 10px; margin:3px 4px 0 0; font-size:11.5px; }
+.ei-chip.empty { background:none; border:0; color:var(--muted); font-style:italic; padding-left:0; }
 
 #previewBar { position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:55; display:none; align-items:center; gap:10px; background:#233247; color:#fff; padding:10px 16px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
 #previewBar b { font-size:13px; }
@@ -435,8 +451,8 @@ canvas.addEventListener('dblclick', e => {
 
 /* ---------- Modals ---------- */
 const overlay = document.getElementById('overlay'), modalBox = document.getElementById('modalBox');
-function openModal(html) { modalBox.innerHTML = html; overlay.style.display = 'flex'; }
-function closeModal() { overlay.style.display = 'none'; modalBox.innerHTML = ''; }
+function openModal(html, wide) { modalBox.className = 'modal' + (wide ? ' wide' : ''); modalBox.innerHTML = html; overlay.style.display = 'flex'; }
+function closeModal() { overlay.style.display = 'none'; modalBox.innerHTML = ''; modalBox.className = 'modal'; }
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
 function openPostitModal(id) {
@@ -459,10 +475,27 @@ function openPostitModal(id) {
 
 function openPhaseModal(i) {
   const p = state.phases[i]; if (!p) return;
-  const f = (k, lbl) => '<label>' + lbl + '</label><textarea id="ei_' + k + '" rows="2">' + esc(p[k] || '') + '</textarea>';
-  openModal('<h3>System-Ei &ndash; Phase ' + (i+1) + '</h3><label>Phasen-Name</label><input type="text" id="ei_name" value="' + esc(p.name) + '">'
-    + f('ziel','Ziel der Phase') + f('input','Input (was kommt rein?)') + f('output','Output / Ergebnis') + f('wer','Wer?') + f('was','Was?') + f('wann','Wann?') + f('wie','Wie?')
-    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">Phase l&ouml;schen</button></div>');
+  const ta = (k, ph) => '<textarea id="ei_' + k + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>' + esc(p[k] || '') + '</textarea>';
+  const wf = (k, lbl) => '<div><label>' + lbl + '</label>' + ta(k) + '</div>';
+  const groups = cardsInPhaseLane(i, 'anspruch');
+  const chips = groups.length
+    ? groups.map(c => '<span class="ei-chip">' + esc(c.text.replace(/^👥\s*/, '')) + '</span>').join('')
+    : '<span class="ei-chip empty">noch keine – in der Phasen-Lupe ergänzen</span>';
+  openModal('<h3>System-Ei &ndash; Phase ' + (i+1) + '</h3>'
+    + '<label>Phasen-Name</label><input type="text" id="ei_name" value="' + esc(p.name) + '">'
+    + '<div class="ei-wrap">'
+      + '<div class="ei-col ei-in"><label>Input &#9654;</label>' + ta('input','was kommt rein?') + '</div>'
+      + '<div class="ei-flow">&#9654;</div>'
+      + '<div class="ei-col ei-egg"><div class="ei-egg-h">Systemgrenze &middot; Phase</div>'
+        + '<label>Ziel der Phase</label><textarea id="ei_ziel" class="ei-ziel"></textarea>'
+        + '<div class="ei-w">' + wf('wer','Wer?') + wf('was','Was?') + wf('wann','Wann?') + wf('wie','Wie?') + '</div>'
+      + '</div>'
+      + '<div class="ei-flow">&#9654;</div>'
+      + '<div class="ei-col ei-out"><label>&#9654; Output</label>' + ta('output','was kommt raus?') + '</div>'
+    + '</div>'
+    + '<div class="ei-anspruch"><div class="h">Anspruchsgruppen &middot; ausserhalb der Systemgrenze</div>' + chips + '</div>'
+    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">Phase l&ouml;schen</button></div>', true);
+  document.getElementById('ei_ziel').value = p.ziel || '';
   document.getElementById('mSave').onclick = () => {
     p.name = document.getElementById('ei_name').value || p.name;
     ['ziel','input','output','wer','was','wann','wie'].forEach(k => { p[k] = document.getElementById('ei_' + k).value; });
