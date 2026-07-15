@@ -87,22 +87,21 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 .swatches { display:flex; gap:7px; margin-top:4px; }
 .swatch { width:30px; height:30px; border-radius:6px; cursor:pointer; border:2px solid rgba(0,0,0,.12); }
 .swatch.sel { border-color:#1d2530; }
-.modal.wide { width:720px; max-width:96vw; }
-.ei-wrap { display:grid; grid-template-columns:1fr 22px 1.5fr 22px 1fr; align-items:center; gap:6px; margin-top:8px; }
-.ei-col label { display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:3px; }
-.ei-col textarea { width:100%; font:inherit; font-size:11.5px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; }
-.ei-in textarea, .ei-out textarea { min-height:150px; background:#f4f8ff; }
-.ei-flow { text-align:center; color:var(--accent); font-size:20px; font-weight:700; }
-.ei-egg { border:3px solid var(--accent); border-radius:50% / 44%; background:linear-gradient(#f6faff,#eef4fc); padding:26px 30px; box-shadow:inset 0 0 0 6px #fff; }
-.ei-egg .ei-egg-h { text-align:center; font-size:10px; font-weight:700; letter-spacing:.6px; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
-.ei-egg .ei-ziel { width:100%; font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:44px; background:#fffef4; }
-.ei-w { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:8px; }
-.ei-w label { font-size:9.5px; }
-.ei-w textarea { min-height:40px; }
-.ei-anspruch { margin-top:16px; border:2px dashed #c98; border-radius:10px; padding:9px 12px; background:#fff7f4; }
-.ei-anspruch .h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#a5643f; margin-bottom:5px; }
-.ei-chip { display:inline-block; background:#ffd9e0; border:1px solid #f0b8c2; border-radius:13px; padding:3px 10px; margin:3px 4px 0 0; font-size:11.5px; }
-.ei-chip.empty { background:none; border:0; color:var(--muted); font-style:italic; padding-left:0; }
+.modal.wide { width:820px; max-width:96vw; }
+.ei-sub { font-size:12.5px; color:var(--muted); line-height:1.45; margin:2px 0 14px; }
+.ei-ziel-big { width:100%; font:inherit; font-size:13px; line-height:1.45; padding:9px 11px; border:1px solid var(--line); border-radius:7px; resize:none; overflow:hidden; background:#fffef6; min-height:46px; }
+.ei-wrap { display:grid; grid-template-columns:1fr 28px 1.55fr 28px 1fr; align-items:stretch; gap:6px; margin-top:8px; }
+.ei-col { display:flex; flex-direction:column; }
+.ei-col > label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:5px; }
+.ei-in > label, .ei-out > label { color:#3f6fb0; }
+.ei-col textarea { width:100%; font:inherit; font-size:13px; line-height:1.45; padding:9px 11px; border:1px solid var(--line); border-radius:7px; resize:none; overflow:hidden; }
+.ei-in textarea, .ei-out textarea { background:#f6f9fd; flex:1; min-height:170px; }
+.ei-flow { align-self:center; text-align:center; color:var(--accent); font-size:24px; font-weight:700; }
+.ei-egg { border:2.5px solid var(--accent); border-radius:46% / 11%; background:linear-gradient(#f5f9ff,#e9f1fb); padding:24px 30px; }
+.ei-egg .ei-egg-h { text-align:center; font-size:12.5px; font-weight:700; letter-spacing:.5px; color:var(--accent); margin-bottom:14px; }
+.ei-w { display:flex; flex-direction:column; gap:13px; }
+.ei-w label { display:block; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:4px; }
+.ei-w textarea { background:#fffef6; min-height:40px; }
 
 #previewBar { position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:55; display:none; align-items:center; gap:10px; background:#233247; color:#fff; padding:10px 16px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
 #previewBar b { font-size:13px; }
@@ -168,119 +167,14 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #lupeProp .row button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:6px 12px; }
 #lupeProp .take { background:#2f8a4c; color:#fff; } #lupeProp .drop { background:#6b7a8d; color:#fff; }
 
-/* =========================================================
-   SIGNAL BOARD – dunkles Farbschema (nur Optik)
-   ========================================================= */
-:root {
-  --bg:#1A1D23; --card:#252830; --line:#2E323B; --muted:#8A909C;
-  --accent:#5B8DEF; --ok:#2ECC8E; --warn:#E8445A;
-  --todo:#5B8DEF; --inprogress:#F5A623; --blocked:#E8445A; --done:#2ECC8E;
-}
-body { background:var(--bg); color:#E6E9EF; }
-h1, header h1, .modal h3, .lupe-top h2, .ki-head b, .auth-card h2 { font-family:'Space Grotesk',sans-serif; }
-
-/* Kopfleiste */
-header { background:var(--card); border-bottom:1px solid var(--line); }
-header h1 { color:#fff; letter-spacing:.02em; }
-header .sub { color:var(--muted); }
-header button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-header button:hover { background:#343945; }
-header button.primary { background:var(--accent); border-color:var(--accent); color:#10131a; font-weight:700; }
-header button.primary:hover { background:#6f9cf2; }
-header button.active { background:#233252; border-color:var(--accent); color:var(--accent); }
-.savedTag { color:var(--ok); font-family:'IBM Plex Mono',monospace; }
-.userTag { color:var(--muted); font-family:'IBM Plex Mono',monospace; }
-
-/* Wand */
-#wallScroll, #wallCanvas { background:var(--bg); }
-.lane-label { background:var(--card); border-right:2px solid #363b45; border-bottom:1px solid var(--line); color:#E6E9EF; }
-.lane-label span { color:var(--muted); }
-.lane-row { border-bottom:1px solid var(--line); }
-.lane-row.alt { background:#1E2128; }
-.phase-head { background:var(--card); border-right:1px solid var(--line); border-bottom:2px solid #363b45; color:#E6E9EF; }
-.phase-head:hover { background:#2b2f39; }
-.phase-head b { font-family:'Space Grotesk',sans-serif; }
-.phase-head small { color:var(--muted); }
-.phase-zoom { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-.phase-zoom:hover { background:#233252; border-color:var(--accent); }
-.phase-sep { border-left:1px dashed #363b45; }
-
-/* Post-its: dunkle Karte + farbiger linker Rand je Ebene */
-.postit { color:#E6E9EF; background:var(--card) !important; border-left:3px solid var(--muted); box-shadow:0 2px 6px rgba(0,0,0,.35); }
-.postit .dot { border-color:rgba(255,255,255,.25); }
-.dot.offen { background:#40454f; }
-.lane-row[data-laneidx] { } /* Rahmenfarbe wird per JS-Ebene gesetzt */
-
-/* Verbindungen heller */
-#conns path.vis { stroke:#7a828f; } #conns marker#arr path { fill:#7a828f; }
-
-/* KI-Panel */
-aside { background:var(--card); border-left:1px solid var(--line); }
-.ki-head { border-bottom:1px solid var(--line); } .ki-head b { color:#fff; }
-.ki-head button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-#kiLog .msg.user { background:#233252; color:#E6E9EF; }
-#kiLog .msg.ai { background:#2E323B; color:#E6E9EF; }
-#kiLog .msg.sys { color:var(--muted); }
-.ki-foot { border-top:1px solid var(--line); }
-#chatInput { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
-
-/* Zielleiste */
-#goalbar { background:var(--card); border-top:1px solid var(--line); }
-#goalbar label { color:var(--muted); }
-#goalInput { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
-
-/* Modals */
-.modal { background:var(--card); color:#E6E9EF; }
-.modal label { color:var(--muted); }
-.modal input[type=text], .modal input[type=password], .modal textarea, .modal select { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
-.modal .btnrow button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-.modal .btnrow .go { background:var(--accent); border-color:var(--accent); color:#10131a; }
-.modal .btnrow .del { color:var(--warn); background:#2E323B; }
-
-/* System-Ei (Ei-Diagramm) dunkel */
-.ei-col textarea { background:#1E2128; color:#E6E9EF; border-color:#3A3F4A; }
-.ei-in textarea, .ei-out textarea { background:#20242c; }
-.ei-egg { border-color:var(--accent); background:linear-gradient(#20242c,#1b1f27); box-shadow:inset 0 0 0 6px #252830; }
-.ei-egg .ei-ziel { background:#2a2620; color:#E6E9EF; border-color:#4a422e; }
-.ei-anspruch { background:#2a2024; border-color:#7a4a52; }
-.ei-anspruch .h { color:#e79aa6; }
-.ei-chip { background:#4a2530; border-color:#7a4a52; color:#f2c4cc; }
-
-/* Phasen-Lupe dunkel */
-#lupe .lupe-inner { background:var(--card); }
-.lupe-top { background:#1E2128; border-bottom:1px solid var(--line); }
-.lupe-top h2 { color:#fff; } .lupe-top .ph-no { color:var(--muted); }
-.lupe-top button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-.lupe-top .lupe-close { background:var(--accent); color:#10131a; border-color:var(--accent); }
-.lupe-tools button { background:#233252; color:#9ec0f6; border-color:#33507e; }
-.ei-grid textarea { background:#1E2128; color:#E6E9EF; border-color:#3A3F4A; }
-.ei-grid label, .lupe-sec h3 .cnt { color:var(--muted); }
-.lupe-sec { border-top:1px solid var(--line); }
-.lupe-sec h3 .add { background:#2E323B; border:1px dashed #3A3F4A; color:#9ec0f6; }
-.tk { background:#1E2128; border:1px solid var(--line); }
-.tk .tk-text { color:#E6E9EF; } .tk .tk-text:focus { background:#2a2620; }
-.tk button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
-.tk-ai-box { background:#20242c; border-left-color:var(--accent); }
-#lupeProp { background:#20242c; border-color:var(--accent); }
-
-/* Anmeldung */
-#authGate { background:var(--bg); }
-.auth-card { background:var(--card); }
-.auth-card h2 { color:#fff; } .auth-card p { color:var(--muted); }
-.auth-card input { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
-#authSubmit { background:var(--accent); color:#10131a; }
-
-/* Overlay etwas dunkler */
-#overlay { background:rgba(10,12,16,.6); }
-
-/* KI-Dialog pro Aufgabe */
-.tk-ai-msgs { max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
-.tk-ai-msgs .am { padding:7px 10px; border-radius:8px; font-size:12px; line-height:1.4; white-space:pre-wrap; max-width:92%; }
-.tk-ai-msgs .am.user { align-self:flex-end; background:#233252; }
-.tk-ai-msgs .am.ai { align-self:flex-start; background:#2E323B; }
+/* KI-Dialog pro Aufgabe (hell) */
+.tk-ai-msgs { max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.tk-ai-msgs .am { padding:7px 10px; border-radius:8px; font-size:12.5px; line-height:1.45; white-space:pre-wrap; max-width:92%; }
+.tk-ai-msgs .am.user { align-self:flex-end; background:#e3ecf7; }
+.tk-ai-msgs .am.ai { align-self:flex-start; background:#f1f2f5; }
 .tk-ai-in { display:flex; gap:6px; margin-top:9px; }
-.tk-ai-in textarea { flex:1; font:inherit; font-size:12px; padding:6px 8px; border:1px solid #3A3F4A; border-radius:6px; background:#1E2128; color:#E6E9EF; resize:vertical; min-height:36px; }
-.tk-ai-in .send { font:inherit; font-size:12px; font-weight:700; cursor:pointer; border:0; border-radius:6px; background:var(--accent); color:#10131a; padding:0 14px; }
+.tk-ai-in textarea { flex:1; font:inherit; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:38px; }
+.tk-ai-in .send { font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:0 14px; }
 </style>
 </head>
 <body>
@@ -466,7 +360,7 @@ function render() {
 
   s.postits.forEach(p => {
     const st = p.status || 'offen';
-    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;border-left-color:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
+    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
   });
 
   h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a5e"/></marker></defs>';
@@ -592,35 +486,44 @@ function openPostitModal(id) {
   };
 }
 
+function autoGrow(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 function openPhaseModal(i) {
   const p = state.phases[i]; if (!p) return;
-  const ta = (k, ph) => '<textarea id="ei_' + k + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>' + esc(p[k] || '') + '</textarea>';
+  const ta = (k, cls) => '<textarea id="ei_' + k + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(p[k] || '') + '</textarea>';
   const wf = (k, lbl) => '<div><label>' + lbl + '</label>' + ta(k) + '</div>';
-  const groups = cardsInPhaseLane(i, 'anspruch');
-  const chips = groups.length
-    ? groups.map(c => '<span class="ei-chip">' + esc(c.text.replace(/^👥\s*/, '')) + '</span>').join('')
-    : '<span class="ei-chip empty">noch keine – in der Phasen-Lupe ergänzen</span>';
-  openModal('<h3>System-Ei &ndash; Phase ' + (i+1) + '</h3>'
-    + '<label>Phasen-Name</label><input type="text" id="ei_name" value="' + esc(p.name) + '">'
+  const hasNext = i + 1 < state.phases.length;
+  openModal('<h3>System-Ei &middot; Phase ' + (i+1) + '</h3>'
+    + '<div class="ei-sub">Eine Phase ist ein Teilsystem: Inputfilter &rarr; W-Fragen + Ziel &rarr; Outputfilter. Der Output dieser Phase ist der Inputfilter der n&auml;chsten.</div>'
+    + '<label>Phase benennen</label><input type="text" id="ei_name" value="' + esc(p.name) + '">'
+    + '<label>Ziel der Phase (Soll-Zustand)</label><textarea id="ei_ziel" class="ei-ziel-big"></textarea>'
     + '<div class="ei-wrap">'
-      + '<div class="ei-col ei-in"><label>Input &#9654;</label>' + ta('input','was kommt rein?') + '</div>'
-      + '<div class="ei-flow">&#9654;</div>'
-      + '<div class="ei-col ei-egg"><div class="ei-egg-h">Systemgrenze &middot; Phase</div>'
-        + '<label>Ziel der Phase</label><textarea id="ei_ziel" class="ei-ziel"></textarea>'
+      + '<div class="ei-col ei-in"><label>Inputfilter</label>' + ta('input') + '</div>'
+      + '<div class="ei-flow">&#8594;</div>'
+      + '<div class="ei-col ei-egg"><div class="ei-egg-h">W-Fragen</div>'
         + '<div class="ei-w">' + wf('wer','Wer?') + wf('was','Was?') + wf('wann','Wann?') + wf('wie','Wie?') + '</div>'
       + '</div>'
-      + '<div class="ei-flow">&#9654;</div>'
-      + '<div class="ei-col ei-out"><label>&#9654; Output</label>' + ta('output','was kommt raus?') + '</div>'
+      + '<div class="ei-flow">&#8594;</div>'
+      + '<div class="ei-col ei-out"><label>Outputfilter</label>' + ta('output') + '</div>'
     + '</div>'
-    + '<div class="ei-anspruch"><div class="h">Anspruchsgruppen &middot; ausserhalb der Systemgrenze</div>' + chips + '</div>'
-    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">Phase l&ouml;schen</button></div>', true);
+    + '<div class="btnrow">'
+      + (hasNext ? '<button class="go" id="mNext">Output &rarr; Input von Phase ' + (i+2) + '</button>' : '')
+      + '<button class="del" id="mDel">Phase l&ouml;schen</button>'
+      + '<button id="mCancel">Schliessen</button>'
+    + '</div>', true);
   document.getElementById('ei_ziel').value = p.ziel || '';
-  document.getElementById('mSave').onclick = () => {
+  const fields = ['ziel','input','output','wer','was','wann','wie'];
+  fields.forEach(k => { const el = document.getElementById('ei_' + k); autoGrow(el); el.addEventListener('input', () => autoGrow(el)); });
+  const collect = () => {
     p.name = document.getElementById('ei_name').value || p.name;
-    ['ziel','input','output','wer','was','wann','wie'].forEach(k => { p[k] = document.getElementById('ei_' + k).value; });
-    save(); render(); closeModal();
+    fields.forEach(k => { p[k] = document.getElementById('ei_' + k).value; });
   };
-  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mCancel').onclick = () => { collect(); save(); render(); closeModal(); };
+  if (hasNext) document.getElementById('mNext').onclick = () => {
+    collect();
+    const nx = state.phases[i+1];
+    nx.input = p.output ? (nx.input ? nx.input + '\n' + p.output : p.output) : nx.input;
+    save(); render(); closeModal(); openPhaseModal(i+1);
+  };
   document.getElementById('mDel').onclick = () => {
     if (state.phases.length <= 1) { closeModal(); return; }
     state.phases.splice(i, 1); save(); render(); closeModal();
