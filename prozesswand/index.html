@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OSTO/SYMA Prozesswand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root { --line:#d9dde3; --muted:#6b7280; --accent:#3f6fb0; --bg:#eef0f3; --ok:#2f8a4c; --warn:#b14b46; }
 * { box-sizing:border-box; }
@@ -164,6 +167,120 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #lupeProp .row { margin-top:10px; display:flex; gap:8px; }
 #lupeProp .row button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:6px 12px; }
 #lupeProp .take { background:#2f8a4c; color:#fff; } #lupeProp .drop { background:#6b7a8d; color:#fff; }
+
+/* =========================================================
+   SIGNAL BOARD – dunkles Farbschema (nur Optik)
+   ========================================================= */
+:root {
+  --bg:#1A1D23; --card:#252830; --line:#2E323B; --muted:#8A909C;
+  --accent:#5B8DEF; --ok:#2ECC8E; --warn:#E8445A;
+  --todo:#5B8DEF; --inprogress:#F5A623; --blocked:#E8445A; --done:#2ECC8E;
+}
+body { background:var(--bg); color:#E6E9EF; }
+h1, header h1, .modal h3, .lupe-top h2, .ki-head b, .auth-card h2 { font-family:'Space Grotesk',sans-serif; }
+
+/* Kopfleiste */
+header { background:var(--card); border-bottom:1px solid var(--line); }
+header h1 { color:#fff; letter-spacing:.02em; }
+header .sub { color:var(--muted); }
+header button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+header button:hover { background:#343945; }
+header button.primary { background:var(--accent); border-color:var(--accent); color:#10131a; font-weight:700; }
+header button.primary:hover { background:#6f9cf2; }
+header button.active { background:#233252; border-color:var(--accent); color:var(--accent); }
+.savedTag { color:var(--ok); font-family:'IBM Plex Mono',monospace; }
+.userTag { color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+
+/* Wand */
+#wallScroll, #wallCanvas { background:var(--bg); }
+.lane-label { background:var(--card); border-right:2px solid #363b45; border-bottom:1px solid var(--line); color:#E6E9EF; }
+.lane-label span { color:var(--muted); }
+.lane-row { border-bottom:1px solid var(--line); }
+.lane-row.alt { background:#1E2128; }
+.phase-head { background:var(--card); border-right:1px solid var(--line); border-bottom:2px solid #363b45; color:#E6E9EF; }
+.phase-head:hover { background:#2b2f39; }
+.phase-head b { font-family:'Space Grotesk',sans-serif; }
+.phase-head small { color:var(--muted); }
+.phase-zoom { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+.phase-zoom:hover { background:#233252; border-color:var(--accent); }
+.phase-sep { border-left:1px dashed #363b45; }
+
+/* Post-its: dunkle Karte + farbiger linker Rand je Ebene */
+.postit { color:#E6E9EF; background:var(--card) !important; border-left:3px solid var(--muted); box-shadow:0 2px 6px rgba(0,0,0,.35); }
+.postit .dot { border-color:rgba(255,255,255,.25); }
+.dot.offen { background:#40454f; }
+.lane-row[data-laneidx] { } /* Rahmenfarbe wird per JS-Ebene gesetzt */
+
+/* Verbindungen heller */
+#conns path.vis { stroke:#7a828f; } #conns marker#arr path { fill:#7a828f; }
+
+/* KI-Panel */
+aside { background:var(--card); border-left:1px solid var(--line); }
+.ki-head { border-bottom:1px solid var(--line); } .ki-head b { color:#fff; }
+.ki-head button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+#kiLog .msg.user { background:#233252; color:#E6E9EF; }
+#kiLog .msg.ai { background:#2E323B; color:#E6E9EF; }
+#kiLog .msg.sys { color:var(--muted); }
+.ki-foot { border-top:1px solid var(--line); }
+#chatInput { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
+
+/* Zielleiste */
+#goalbar { background:var(--card); border-top:1px solid var(--line); }
+#goalbar label { color:var(--muted); }
+#goalInput { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
+
+/* Modals */
+.modal { background:var(--card); color:#E6E9EF; }
+.modal label { color:var(--muted); }
+.modal input[type=text], .modal input[type=password], .modal textarea, .modal select { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
+.modal .btnrow button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+.modal .btnrow .go { background:var(--accent); border-color:var(--accent); color:#10131a; }
+.modal .btnrow .del { color:var(--warn); background:#2E323B; }
+
+/* System-Ei (Ei-Diagramm) dunkel */
+.ei-col textarea { background:#1E2128; color:#E6E9EF; border-color:#3A3F4A; }
+.ei-in textarea, .ei-out textarea { background:#20242c; }
+.ei-egg { border-color:var(--accent); background:linear-gradient(#20242c,#1b1f27); box-shadow:inset 0 0 0 6px #252830; }
+.ei-egg .ei-ziel { background:#2a2620; color:#E6E9EF; border-color:#4a422e; }
+.ei-anspruch { background:#2a2024; border-color:#7a4a52; }
+.ei-anspruch .h { color:#e79aa6; }
+.ei-chip { background:#4a2530; border-color:#7a4a52; color:#f2c4cc; }
+
+/* Phasen-Lupe dunkel */
+#lupe .lupe-inner { background:var(--card); }
+.lupe-top { background:#1E2128; border-bottom:1px solid var(--line); }
+.lupe-top h2 { color:#fff; } .lupe-top .ph-no { color:var(--muted); }
+.lupe-top button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+.lupe-top .lupe-close { background:var(--accent); color:#10131a; border-color:var(--accent); }
+.lupe-tools button { background:#233252; color:#9ec0f6; border-color:#33507e; }
+.ei-grid textarea { background:#1E2128; color:#E6E9EF; border-color:#3A3F4A; }
+.ei-grid label, .lupe-sec h3 .cnt { color:var(--muted); }
+.lupe-sec { border-top:1px solid var(--line); }
+.lupe-sec h3 .add { background:#2E323B; border:1px dashed #3A3F4A; color:#9ec0f6; }
+.tk { background:#1E2128; border:1px solid var(--line); }
+.tk .tk-text { color:#E6E9EF; } .tk .tk-text:focus { background:#2a2620; }
+.tk button { background:#2E323B; color:#E6E9EF; border:1px solid #3A3F4A; }
+.tk-ai-box { background:#20242c; border-left-color:var(--accent); }
+#lupeProp { background:#20242c; border-color:var(--accent); }
+
+/* Anmeldung */
+#authGate { background:var(--bg); }
+.auth-card { background:var(--card); }
+.auth-card h2 { color:#fff; } .auth-card p { color:var(--muted); }
+.auth-card input { background:#1E2128; color:#E6E9EF; border:1px solid #3A3F4A; }
+#authSubmit { background:var(--accent); color:#10131a; }
+
+/* Overlay etwas dunkler */
+#overlay { background:rgba(10,12,16,.6); }
+
+/* KI-Dialog pro Aufgabe */
+.tk-ai-msgs { max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.tk-ai-msgs .am { padding:7px 10px; border-radius:8px; font-size:12px; line-height:1.4; white-space:pre-wrap; max-width:92%; }
+.tk-ai-msgs .am.user { align-self:flex-end; background:#233252; }
+.tk-ai-msgs .am.ai { align-self:flex-start; background:#2E323B; }
+.tk-ai-in { display:flex; gap:6px; margin-top:9px; }
+.tk-ai-in textarea { flex:1; font:inherit; font-size:12px; padding:6px 8px; border:1px solid #3A3F4A; border-radius:6px; background:#1E2128; color:#E6E9EF; resize:vertical; min-height:36px; }
+.tk-ai-in .send { font:inherit; font-size:12px; font-weight:700; cursor:pointer; border:0; border-radius:6px; background:var(--accent); color:#10131a; padding:0 14px; }
 </style>
 </head>
 <body>
@@ -298,7 +415,9 @@ function normalizeState(d) {
     postits: Array.isArray(d.postits) ? d.postits : [],
     connections: Array.isArray(d.connections) ? d.connections : [],
     milestones: Array.isArray(d.milestones) ? d.milestones : [],
-    laneTitles: d.laneTitles || {}
+    laneTitles: d.laneTitles || {},
+    kiLog: Array.isArray(d.kiLog) ? d.kiLog : [],
+    kiConvo: Array.isArray(d.kiConvo) ? d.kiConvo : []
   };
   s.phases.forEach(p => { if (typeof p.w !== 'number' || p.w < 80) p.w = PHASE_W; });
   return s;
@@ -347,7 +466,7 @@ function render() {
 
   s.postits.forEach(p => {
     const st = p.status || 'offen';
-    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
+    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;border-left-color:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
   });
 
   h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a5e"/></marker></defs>';
@@ -614,13 +733,20 @@ async function callClaude(system, user, model, maxTok) {
 
 /* ---------- KI-Moderator (Chat) ---------- */
 const kiLog = document.getElementById('kiLog');
-function addMsg(cls, text) {
+function addMsg(cls, text, opts) {
+  opts = opts || {};
   const d = document.createElement('div');
   d.className = 'msg ' + cls; d.textContent = text;
   kiLog.appendChild(d); kiLog.scrollTop = kiLog.scrollHeight;
+  if (!opts.transient && !opts.restore && state) {
+    if (!Array.isArray(state.kiLog)) state.kiLog = [];
+    state.kiLog.push({ cls, text });
+    if (state.kiLog.length > 300) state.kiLog = state.kiLog.slice(-300);
+    save();
+  }
   return d;
 }
-function sysMsg(t) { addMsg('sys', t); }
+function sysMsg(t, transient) { return addMsg('sys', t, { transient: !!transient }); }
 
 function wallContext() {
   const s = state;
@@ -638,7 +764,7 @@ const MODERATOR_SYS = 'Du bist der KI-Moderator einer OSTO/SYMA-Prozesswand (Pro
 
 async function runChat(prompt, label) {
   addMsg('user', label || prompt);
-  const wait = addMsg('sys', '… denkt nach …');
+  const wait = addMsg('sys', '… denkt nach …', { transient: true });
   try {
     convo.push({ role: 'user', content: prompt });
     if (convo.length > 12) convo = convo.slice(-12);
@@ -647,6 +773,7 @@ async function runChat(prompt, label) {
     const hist = convo.map(m => (m.role === 'user' ? 'Nutzer: ' : 'Moderator: ') + m.content).join('\n\n');
     const out = await callClaude(MODERATOR_SYS + wallContext(), hist, 'claude-sonnet-5', 1500);
     convo.push({ role: 'assistant', content: out });
+    state.kiConvo = convo.slice(-24);
     wait.remove(); addMsg('ai', out);
   } catch (e) { wait.remove(); addMsg('sys', '❌ ' + e.message); }
 }
@@ -989,28 +1116,45 @@ lupeBody.addEventListener('focusout', e => {
   if (ei) { const p = state.phases[lupeIdx]; if (p) { p[ei.dataset.ei] = ei.value; save(); render(); } }
 });
 
-/* KI-Unterstützung pro Aufgabe */
+/* KI-Dialog pro Aufgabe – Anweisungen geben, KI passt an */
 async function cardAI(id) {
   const c = getPostit(id); if (!c) return;
+  if (!getKey()) { openKeyModal(() => cardAI(id)); return; }
   const row = lupeBody.querySelector('.tk[data-id="' + id + '"]');
+  if (!row) return;
+  const existing = row.nextElementSibling;
+  if (existing && existing.classList.contains('tk-ai-box')) { existing.remove(); return; } // Toggle
   const box = document.createElement('div');
-  box.className = 'tk-ai-box'; box.textContent = '🤖 KI denkt nach …';
+  box.className = 'tk-ai-box';
+  box.innerHTML = '<div class="tk-ai-msgs"></div>'
+    + '<div class="tk-ai-in"><textarea rows="2" placeholder="Anweisung an die KI, z.B. «bitte Antragsformular verwenden» …"></textarea><button class="send">Senden</button></div>'
+    + '<div class="row"><button class="take">Letzte Antwort als Ergebnis übernehmen</button><button class="drop">Schliessen</button></div>';
   row.after(box);
-  if (!getKey()) { box.remove(); openKeyModal(() => cardAI(id)); return; }
-  try {
-    const p = state.phases[lupeIdx];
-    const out = await callClaude(
-      'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Arbeite eine einzelne Aufgabe konkret aus: nenne die nötigen Teilschritte, das erwartete Ergebnis und worauf zu achten ist. Kurz, auf Deutsch, praxisnah. Kein Vorgeplänkel.',
-      'Projektziel: ' + (state.goal||'-') + '\nPhase: ' + p.name + '\nAufgabe: "' + c.text + '"\nBitte konkret ausarbeiten.',
-      'claude-sonnet-5', 900);
-    box.innerHTML = '<div>' + esc(out) + '</div><div class="row"><button class="take">Als Ergebnis übernehmen</button><button class="drop">Verwerfen</button></div>';
-    box.querySelector('.drop').onclick = () => box.remove();
-    box.querySelector('.take').onclick = () => {
-      const first = out.split('\n').find(l => l.trim()) || out;
-      addCard(lupeIdx, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•\d.\s]+/, ''), 'offen');
-      save(); renderLupe(); render();
-    };
-  } catch (err) { box.innerHTML = '❌ ' + esc(err.message); box.onclick = () => box.remove(); }
+  const p = state.phases[lupeIdx];
+  const sys = 'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du arbeitest eine einzelne Aufgabe konkret aus und passt sie auf Anweisung des Nutzers an (z.B. bestimmte Formulare, Vorlagen, Adressaten oder Detailtiefe). Kurz, praxisnah, auf Deutsch. Kein Vorgeplänkel.';
+  const dlg = []; let lastAnswer = '';
+  const msgsEl = box.querySelector('.tk-ai-msgs');
+  const inEl = box.querySelector('textarea');
+  const renderDlg = () => { msgsEl.innerHTML = dlg.map(m => '<div class="am ' + m.role + '">' + esc(m.text) + '</div>').join(''); msgsEl.scrollTop = msgsEl.scrollHeight; };
+  async function send(instr) {
+    dlg.push({ role:'user', text: instr }); const think = { role:'ai', text:'… denkt nach …' }; dlg.push(think); renderDlg();
+    try {
+      const hist = 'Projektziel: ' + (state.goal||'-') + '\nPhase: ' + p.name + '\nAufgabe: "' + c.text + '"\n\n'
+        + dlg.filter(m => m !== think).map(m => (m.role==='user' ? 'Anweisung: ' : 'Assistent: ') + m.text).join('\n\n');
+      const out = await callClaude(sys, hist, 'claude-sonnet-5', 1100);
+      dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text: out }); lastAnswer = out; renderDlg();
+    } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text:'❌ ' + e.message }); renderDlg(); }
+  }
+  box.querySelector('.send').onclick = () => { const v = inEl.value.trim(); if (!v) return; inEl.value = ''; send(v); };
+  inEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('.send').click(); } });
+  box.querySelector('.drop').onclick = () => box.remove();
+  box.querySelector('.take').onclick = () => {
+    if (!lastAnswer) return;
+    const first = lastAnswer.split('\n').find(l => l.trim()) || lastAnswer;
+    addCard(lupeIdx, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•#\d.\s]+/, ''), 'offen');
+    save(); renderLupe(); render();
+  };
+  send('Bitte diese Aufgabe konkret ausarbeiten: Teilschritte, erwartetes Ergebnis, worauf achten.');
 }
 
 /* Phasen-Analyse-Tools (mit Freigabe) */
@@ -1066,16 +1210,19 @@ function bootState(d) {
   goalInput.value = state.goal || '';
   autoResizeGoal();
   render();
+  kiLog.innerHTML = '';
+  convo = Array.isArray(state.kiConvo) ? state.kiConvo.slice() : [];
+  (Array.isArray(state.kiLog) ? state.kiLog : []).forEach(m => addMsg(m.cls, m.text, { restore: true }));
 }
 async function loadFromCloud() {
   try {
     const { data, error } = await sb.from('walls').select('data').eq('user_id', currentUser.id).maybeSingle();
     if (error) throw error;
     bootState(data && data.data);
-    sysMsg('Willkommen! Wand geladen. Der Knopf «🤖 KI-Struktur» startet den Agenten-Schwarm.');
+    sysMsg('Willkommen! Wand geladen. Der Knopf «🤖 KI-Struktur» startet den Agenten-Schwarm.', true);
   } catch (e) {
     bootState(defaultState());
-    sysMsg('Cloud-Laden fehlgeschlagen: ' + (e.message || e));
+    sysMsg('Cloud-Laden fehlgeschlagen: ' + (e.message || e), true);
   }
 }
 async function cloudSave() {
