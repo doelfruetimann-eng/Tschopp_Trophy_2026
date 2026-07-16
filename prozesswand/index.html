@@ -106,9 +106,17 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #previewBar { position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:55; display:none; align-items:center; gap:10px; background:#233247; color:#fff; padding:10px 16px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
 #previewBar b { font-size:13px; }
 #previewBar button { font:inherit; font-size:12px; font-weight:700; cursor:pointer; border:0; border-radius:6px; padding:7px 12px; }
+#pvNeu { background:#7a5cc4; color:#fff; }
 #pvErsetzen { background:#3fa564; color:#fff; }
 #pvErgaenzen { background:#4a7fc4; color:#fff; }
 #pvVerwerfen { background:#6b7a8d; color:#fff; }
+#boardSelect { font:inherit; font-size:12px; font-weight:600; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:#f6f7f9; max-width:220px; cursor:pointer; }
+.brd-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); }
+.brd-row input { flex:1; font:inherit; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
+.brd-row button { font:inherit; font-size:11.5px; cursor:pointer; border:1px solid var(--line); border-radius:5px; background:#f6f7f9; padding:5px 9px; }
+.brd-row button:hover { background:#eceef2; }
+.brd-row .brd-del { color:var(--warn); }
+.brd-row.active input { border-color:var(--accent); background:#f2f7ff; font-weight:600; }
 
 #authGate { position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center; background:var(--bg); }
 .auth-card { background:#fff; padding:28px 30px; border-radius:12px; box-shadow:0 4px 22px rgba(0,0,0,.14); width:312px; }
@@ -181,7 +189,9 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 
 <header>
   <h1>OSTO/SYMA Prozesswand</h1>
-  <span class="sub">Zeit &rarr; horizontal &middot; Ebenen &darr; vertikal &middot; Phase anklicken = System-Ei &middot; Doppelklick = Post-it</span>
+  <select id="boardSelect" title="Prozesswand wählen"></select>
+  <button id="boardMenu" title="Wände verwalten">W&auml;nde&hellip;</button>
+  <span class="sub">Phase = System-Ei &middot; Doppelklick = Post-it</span>
   <span class="userTag" id="userTag"></span>
   <button id="logoutBtn" style="display:none">Abmelden</button>
   <span class="savedTag" id="savedTag"></span>
@@ -190,6 +200,7 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
   <button id="addPhase">+ Phase</button>
   <button id="addMs">+ Meilenstein</button>
   <button id="connectBtn">Verbinden</button>
+  <button id="docsBtn">Dokumente</button>
   <button id="exportBtn">Export</button>
   <button id="importBtn">Import</button>
   <input type="file" id="importFile" accept=".json" style="display:none">
@@ -217,6 +228,7 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 
 <div id="previewBar">
   <b>Vorschau des KI-Entwurfs</b>
+  <button id="pvNeu">Als neue Wand</button>
   <button id="pvErsetzen">Wand ersetzen</button>
   <button id="pvErgaenzen">Erg&auml;nzen</button>
   <button id="pvVerwerfen">Verwerfen</button>
@@ -279,6 +291,7 @@ let convo = [];
 let connectMode = false, connectSrc = null;
 let undoBackup = null;
 let sb = null, currentUser = null, cloudTimer = null;
+let collection = { boards: [], activeId: null };
 
 function defaultState() {
   const phases = [
@@ -316,8 +329,50 @@ function normalizeState(d) {
   s.phases.forEach(p => { if (typeof p.w !== 'number' || p.w < 80) p.w = PHASE_W; });
   return s;
 }
+/* ---------- Sammlung mehrerer Prozesswände (Boards) ---------- */
+function activeBoard() { return collection.boards.find(b => b.id === collection.activeId) || collection.boards[0] || null; }
+function syncActive() { const b = activeBoard(); if (b) b.state = state; }
+function refreshFromState() {
+  goalInput.value = state.goal || ''; autoResizeGoal(); render();
+  kiLog.innerHTML = '';
+  convo = Array.isArray(state.kiConvo) ? state.kiConvo.slice() : [];
+  (Array.isArray(state.kiLog) ? state.kiLog : []).forEach(m => addMsg(m.cls, m.text, { restore: true }));
+}
+function activateBoard(id) {
+  if (id) collection.activeId = id;
+  let b = activeBoard();
+  if (!b) { b = { id: uid('b'), name: 'Meine Wand', state: defaultState() }; collection.boards.push(b); collection.activeId = b.id; }
+  collection.activeId = b.id; state = b.state;
+  renderBoardSelect(); refreshFromState();
+}
+function newBoardFrom(name, st, activate) {
+  const b = { id: uid('b'), name: name || 'Neue Wand', state: st || defaultState() };
+  collection.boards.push(b);
+  if (activate !== false) { collection.activeId = b.id; state = b.state; renderBoardSelect(); refreshFromState(); }
+  save();
+  return b;
+}
+function loadCollection(d) {
+  collection = { boards: [], activeId: null };
+  if (d && Array.isArray(d.boards) && d.boards.length) {
+    collection.boards = d.boards.map(b => ({ id: b.id || uid('b'), name: b.name || 'Wand', state: normalizeState(b.state || {}) }));
+    collection.activeId = d.activeId || collection.boards[0].id;
+  } else if (d && Array.isArray(d.phases) && d.phases.length) {
+    const b = { id: uid('b'), name: 'Meine Wand', state: normalizeState(d) }; collection.boards = [b]; collection.activeId = b.id;
+  } else {
+    const b = { id: uid('b'), name: 'Meine Wand', state: defaultState() }; collection.boards = [b]; collection.activeId = b.id;
+  }
+  if (!collection.boards.find(b => b.id === collection.activeId)) collection.activeId = collection.boards[0].id;
+  activateBoard(collection.activeId);
+}
+function renderBoardSelect() {
+  const sel = document.getElementById('boardSelect'); if (!sel) return;
+  sel.innerHTML = collection.boards.map(b => '<option value="' + b.id + '"' + (b.id === collection.activeId ? ' selected' : '') + '>' + esc(b.name) + '</option>').join('');
+}
+
 function save() {
-  localStorage.setItem(STORE, JSON.stringify(state));
+  syncActive();
+  localStorage.setItem(STORE, JSON.stringify(collection));
   const t = document.getElementById('savedTag');
   t.textContent = 'gespeichert'; setTimeout(() => { t.textContent = ''; }, 1300);
   scheduleCloudSave();
@@ -927,6 +982,234 @@ document.getElementById('pvErgaenzen').onclick = () => {
   sysMsg('✅ Entwurf ergänzt (bestehende Post-its blieben erhalten). «Rückgängig» stellt den vorherigen Stand wieder her.');
 };
 
+/* ---------- Mehrere Wände: Auswahl & Verwaltung ---------- */
+document.getElementById('boardSelect').onchange = e => {
+  if (previewState) { renderBoardSelect(); return; }
+  syncActive(); activateBoard(e.target.value); save();
+};
+document.getElementById('pvNeu').onclick = () => {
+  const st = previewState;
+  const nm = 'KI: ' + ((previewMeta && previewMeta.ziel) ? previewMeta.ziel.slice(0, 38) : 'Entwurf');
+  endPreview();
+  newBoardFrom(nm, st, true);
+  sysMsg('✅ Entwurf als neue Wand «' + nm + '» angelegt. Deine bisherige Wand ist unverändert – oben links umschaltbar.');
+};
+document.getElementById('boardMenu').onclick = () => {
+  if (previewState) return;
+  syncActive();
+  const rows = collection.boards.map(b =>
+    '<div class="brd-row' + (b.id === collection.activeId ? ' active' : '') + '" data-bid="' + b.id + '">'
+    + '<input type="text" value="' + esc(b.name) + '">'
+    + (b.id === collection.activeId ? '<span style="font-size:11px;color:var(--muted)">aktiv</span>' : '<button class="brd-open">&Ouml;ffnen</button>')
+    + (collection.boards.length > 1 ? '<button class="brd-del">L&ouml;schen</button>' : '')
+    + '</div>').join('');
+  openModal('<h3>Prozessw&auml;nde</h3><p style="font-size:12px;color:var(--muted);margin:0 0 8px">Jede Wand ist ein eigenes Projekt mit eigener Zeitachse, eigenen Post-its und eigenem KI-Verlauf.</p>'
+    + rows + '<div class="btnrow"><button class="go" id="brdNew">+ Neue Wand</button><button id="brdDone">Fertig</button></div>');
+  const applyNames = () => {
+    modalBox.querySelectorAll('.brd-row').forEach(r => {
+      const b = collection.boards.find(x => x.id === r.dataset.bid);
+      const v = r.querySelector('input').value.trim();
+      if (b && v) b.name = v;
+    });
+  };
+  modalBox.querySelectorAll('.brd-open').forEach(btn => btn.onclick = () => {
+    applyNames(); activateBoard(btn.closest('.brd-row').dataset.bid); save(); closeModal();
+  });
+  modalBox.querySelectorAll('.brd-del').forEach(btn => btn.onclick = () => {
+    const row = btn.closest('.brd-row'), b = collection.boards.find(x => x.id === row.dataset.bid);
+    if (!b || collection.boards.length <= 1) return;
+    if (!btn.dataset.arm) { btn.dataset.arm = '1'; btn.textContent = 'Wirklich löschen?'; return; }
+    applyNames();
+    collection.boards = collection.boards.filter(x => x.id !== b.id);
+    if (collection.activeId === b.id) activateBoard(collection.boards[0].id);
+    save(); closeModal(); document.getElementById('boardMenu').click();
+  });
+  document.getElementById('brdNew').onclick = () => { applyNames(); closeModal(); newBoardFrom('Neue Wand', null, true); };
+  document.getElementById('brdDone').onclick = () => { applyNames(); renderBoardSelect(); save(); closeModal(); };
+};
+
+/* ================================================================
+   DOKUMENTE – Auftragsbeschrieb, Beschaffungsantrag,
+   Terminprogramm, Kostenvoranschlag (nach Vorlagen D. Rütimann)
+   ================================================================ */
+function boardName() { const b = activeBoard(); return b ? b.name : 'Projekt'; }
+function heute() { const d = new Date(); return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear(); }
+function tasksOfPhase(i) { return cardsInPhaseLane(i, 'handlung'); }
+function cleanTxt(t) { return (t||'').replace(/^[⚠️↻👥📄🎯🧭💡]+\s*/u, ''); }
+
+const DOC_CSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1d2530;margin:2cm}'
+  + 'h1{font-size:16pt;margin:0 0 2pt} .sub{color:#6b7280;font-size:10pt;margin-bottom:14pt}'
+  + 'h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:0.5pt solid #c9cdd3;padding-bottom:2pt}'
+  + 'table{border-collapse:collapse;width:100%;margin:6pt 0} td,th{border:0.5pt solid #b9bec6;padding:4pt 6pt;font-size:10pt;vertical-align:top;text-align:left}'
+  + 'th{background:#eef1f5;font-weight:bold} .kopf td:first-child{width:32%;background:#f5f7fa;font-weight:bold}'
+  + '.ph{color:#8a6d1a;background:#fdf6dd} .platz{color:#8a6d1a} .blk{background:#eef1f5;font-weight:bold} .tot{font-weight:bold;background:#f5f7fa}'
+  + '.logo{max-height:46pt;margin-bottom:8pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0}';
+
+function docShell(title, body) {
+  const logo = collection.logo ? '<img class="logo" src="' + collection.logo + '">' : '';
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + DOC_CSS + '</style></head><body>'
+    + logo + '<h1>' + esc(title) + '</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; erzeugt aus der OSTO/SYMA Prozesswand</div>' + body + '</body></html>';
+}
+function downloadDoc(filename, html) {
+  const blob = new Blob(['﻿' + html], { type: 'application/msword' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+function downloadXls(filename, html) {
+  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+function ulOrPlatz(items, platz) {
+  const li = (items||[]).filter(Boolean).map(t => '<li>' + esc(t) + '</li>').join('');
+  return li ? '<ul>' + li + '</ul>' : '<p class="platz">[' + platz + ']</p>';
+}
+function txtOrPlatz(t, platz) { return t ? '<p>' + esc(t).replace(/\n/g,'<br>') + '</p>' : '<p class="platz">[' + platz + ']</p>'; }
+
+function genAuftrag(ai) {
+  ai = ai || {};
+  const ms = state.milestones.length ? state.milestones[state.milestones.length-1].label.split(/\s[–-]\sKriterien/)[0] : '';
+  let b = '<table class="kopf">'
+    + '<tr><td>Projekt</td><td>' + esc(boardName()) + '</td></tr>'
+    + '<tr><td>Ziel / Zweck</td><td>' + esc(state.goal || '[Gesamtziel ergänzen]') + '</td></tr>'
+    + '<tr><td>Auftraggeber</td><td class="platz">[ergänzen]</td></tr>'
+    + '<tr><td>Projektkoordination</td><td>' + esc((state.phases[0] && state.phases[0].wer) || '[ergänzen]') + '</td></tr>'
+    + '<tr><td>Stand</td><td>Entwurf ' + heute() + '</td></tr>'
+    + '<tr><td>Kritischer Meilenstein</td><td>' + esc(ms || '[ergänzen]') + '</td></tr></table>';
+  b += '<h2>1. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen: Anlass, Dringlichkeit, Bezug zum Betrieb');
+  b += '<h2>2. Zielbild / Nutzung</h2>' + txtOrPlatz(ai.zielbild || state.goal, 'Zielbild ergänzen')
+    + ulOrPlatz(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel)).filter(Boolean), 'Phasenziele ergänzen');
+  b += '<h2>3. Nutzen</h2>' + txtOrPlatz(ai.nutzen, 'Nutzen ergänzen: betrieblich, qualitativ, finanziell');
+  b += '<h2>4. Projektumfang / Phasen</h2>';
+  state.phases.forEach((p, i) => {
+    b += '<p><b>Phase ' + (i+1) + ' – ' + esc(p.name) + '</b>' + (p.output ? ' &middot; Ergebnis: ' + esc(p.output) : '') + '</p>';
+  });
+  b += '<h2>5. Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Aufgabe</th><th>Verantwortlich</th><th>Status</th></tr>';
+  let n = 0;
+  state.phases.forEach((p, i) => {
+    tasksOfPhase(i).forEach(c => {
+      n++;
+      b += '<tr><td>' + n + '</td><td>' + (i+1) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td>' + (STATUS_LABEL[c.status||'offen']) + '</td></tr>';
+    });
+  });
+  b += '</table>';
+  return docShell('Auftragsbeschrieb', b);
+}
+
+function genBeschaffung(ai) {
+  ai = ai || {};
+  let b = '<table class="kopf">'
+    + '<tr><td>Antragsteller</td><td class="platz">[Name, Funktion]</td></tr>'
+    + '<tr><td>Projekt</td><td>' + esc(boardName()) + '</td></tr>'
+    + '<tr><td>Ziel der Beschaffung</td><td>' + esc(state.goal || '[ergänzen]') + '</td></tr>'
+    + '<tr><td>Empfänger</td><td class="platz">[Entscheidgremium]</td></tr>'
+    + '<tr><td>Antragsdatum</td><td>' + heute() + '</td></tr>'
+    + '<tr><td>Status</td><td>Entwurf zur Vervollständigung</td></tr></table>';
+  b += '<h2>1. Antrag / Beschluss</h2>' + (ai.antrag ? txtOrPlatz(ai.antrag,'')
+    : '<ul><li>die im Projekt «' + esc(boardName()) + '» definierten Massnahmen zu genehmigen,</li><li>die finanziellen Mittel gemäss Kostenzusammenstellung zu sprechen,</li><li>den Auftrag zur Umsetzung zu erteilen.</li></ul>');
+  b += '<h2>2. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen');
+  b += '<h2>3. Begründung des Bedarfs</h2>' + (ai.begruendung ? txtOrPlatz(ai.begruendung,'')
+    : ulOrPlatz(cardsInPhaseLane(0,'reflexion').concat(state.phases[1] ? cardsInPhaseLane(1,'reflexion') : []).map(c => cleanTxt(c.text)), 'Begründung ergänzen: Dringlichkeit, Risiken bei Nichtumsetzung'));
+  b += '<h2>4. Kostenübersicht</h2><table><tr><th>Block</th><th>Beschreibung</th><th>Total CHF (Richtwert)</th></tr>';
+  state.phases.forEach((p, i) => {
+    b += '<tr><td>' + String.fromCharCode(65+i) + '</td><td>' + esc(p.name) + '</td><td class="ph">[Richtwert]</td></tr>';
+  });
+  b += '<tr class="tot"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="ph">[Total]</td></tr></table>';
+  b += '<p class="platz">Kaufmännische Inhalte (Wirtschaftlichkeit, Finanzierung) sind fachlich zu vervollständigen.</p>';
+  return docShell('Beschaffungsantrag', b);
+}
+
+function genTermin() {
+  let rows = '<tr><th>Nr.</th><th>Aufgabe</th><th>Verantwortlich</th><th>Start</th><th>Dauer</th></tr>';
+  let n = 0;
+  state.phases.forEach((p, i) => {
+    rows += '<tr class="blk"><td>P' + (i+1) + '</td><td colspan="4">Phase ' + (i+1) + ' – ' + esc(p.name) + (p.wann ? ' (' + esc(p.wann) + ')' : '') + '</td></tr>';
+    tasksOfPhase(i).forEach(c => {
+      n++;
+      rows += '<tr><td>' + n + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="ph">' + esc(p.wann || '[KW]') + '</td><td class="ph">[Dauer]</td></tr>';
+    });
+  });
+  if (state.milestones.length) {
+    rows += '<tr class="blk"><td>&#9670;</td><td colspan="4">Meilensteine / Entscheid-Tore</td></tr>';
+    state.milestones.forEach(m => { rows += '<tr><td>&#9670;</td><td colspan="4">' + esc(m.label) + '</td></tr>'; });
+  }
+  const logo = collection.logo ? '<img src="' + collection.logo + '" style="max-height:46pt"><br>' : '';
+  const html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
+    + logo + '<h1>Grobterminprogramm</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; aus der Prozesswand</div>'
+    + '<table>' + rows + '</table><p class="platz">Gelb markierte Felder (Start, Dauer) sind zu präzisieren.</p></body></html>';
+  return html;
+}
+
+function genKosten() {
+  let rows = '<tr><th>Pos.</th><th>Beschreibung</th><th>Menge</th><th>Einheit</th><th>EP CHF</th><th>Total CHF</th><th>Verantwortlich</th></tr>';
+  state.phases.forEach((p, i) => {
+    const blk = String.fromCharCode(65 + i);
+    rows += '<tr class="blk"><td>' + blk + '</td><td colspan="6">' + esc(p.name) + '</td></tr>';
+    tasksOfPhase(i).forEach((c, j) => {
+      rows += '<tr><td>' + blk + '.' + ('0'+(j+1)).slice(-2) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td class="ph"></td><td class="ph"></td><td class="ph"></td><td></td><td>' + esc(p.wer || '') + '</td></tr>';
+    });
+    rows += '<tr class="tot"><td colspan="5">Zwischentotal Block ' + blk + '</td><td class="ph"></td><td></td></tr>';
+  });
+  rows += '<tr class="tot"><td colspan="5">TOTAL (exkl. MwSt., Richtwerte)</td><td class="ph"></td><td></td></tr>'
+    + '<tr><td colspan="5">MwSt. 8.1%</td><td class="ph"></td><td></td></tr>'
+    + '<tr class="tot"><td colspan="5">TOTAL inkl. MwSt.</td><td class="ph"></td><td></td></tr>';
+  const logo = collection.logo ? '<img src="' + collection.logo + '" style="max-height:46pt"><br>' : '';
+  return '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
+    + logo + '<h1>Grobkostenvoranschlag (Richtwerte)</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; aus der Prozesswand</div>'
+    + '<table>' + rows + '</table><p class="platz">Gelbe Felder (Menge, EP) ausfüllen; Totale rechnen sich in Excel per Formel oder von Hand.</p></body></html>';
+}
+
+let docsAiCache = null;
+async function docsAiTexts() {
+  if (docsAiCache) return docsAiCache;
+  const ctx = wallContext();
+  const out = await callClaude(
+    'Du schreibst kurze, sachliche Textbausteine für Projektdokumente eines Schweizer Betriebs. Deutsch, präzise, keine Floskeln. Antworte NUR als JSON: '
+    + '{"auftrag":{"ausgangslage":"...","zielbild":"...","nutzen":"..."},"beschaffung":{"antrag":"...","ausgangslage":"...","begruendung":"..."}} (je 2-4 Sätze bzw. 3 Spiegelstriche als Zeilen).',
+    'Projekt: ' + boardName() + '\n' + ctx, 'claude-sonnet-5', 1600);
+  docsAiCache = extractJSON(out);
+  return docsAiCache;
+}
+
+document.getElementById('docsBtn').onclick = () => {
+  if (previewState) return;
+  docsAiCache = null;
+  const logoRow = collection.logo
+    ? '<img src="' + collection.logo + '" style="max-height:40px;vertical-align:middle"> <button id="logoDel" style="font-size:11px">Logo entfernen</button>'
+    : '<input type="file" id="logoFile" accept="image/*"> <span style="font-size:11px;color:var(--muted)">wird oben in jedem Dokument platziert</span>';
+  openModal('<h3>Dokumente aus der Prozesswand</h3>'
+    + '<p style="font-size:12px;color:var(--muted);margin:0 0 6px">Erzeugt Entwürfe nach deinen Vorlagen – gefüllt aus Wand «' + esc(boardName()) + '». Platzhalter [in Klammern] sind fachlich zu vervollständigen.</p>'
+    + '<label>Logo (zentral gespeichert)</label><div>' + logoRow + '</div>'
+    + '<label style="margin-top:12px">Word-Dokumente</label>'
+    + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dAuftrag">Auftragsbeschrieb (.doc)</button><button class="go" id="dBeschaffung">Beschaffungsantrag (.doc)</button></div>'
+    + '<label style="margin-top:6px"><input type="checkbox" id="dAi" checked> Texte (Ausgangslage, Nutzen, Begründung) von der KI ausformulieren lassen</label>'
+    + '<label style="margin-top:12px">Excel-Arbeitsblätter</label>'
+    + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dTermin">Terminprogramm (.xls)</button><button class="go" id="dKosten">Kostenvoranschlag (.xls)</button></div>'
+    + '<div class="btnrow"><button id="mCancel">Schliessen</button></div>');
+  document.getElementById('mCancel').onclick = closeModal;
+  const lf = document.getElementById('logoFile');
+  if (lf) lf.addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { collection.logo = r.result; save(); closeModal(); document.getElementById('docsBtn').click(); };
+    r.readAsDataURL(f);
+  });
+  const ld = document.getElementById('logoDel');
+  if (ld) ld.onclick = () => { delete collection.logo; save(); closeModal(); document.getElementById('docsBtn').click(); };
+  async function wordDoc(kind) {
+    let ai = null;
+    if (document.getElementById('dAi').checked && getKey()) {
+      sysMsg('🤖 KI formuliert Textbausteine für ' + (kind === 'a' ? 'Auftragsbeschrieb' : 'Beschaffungsantrag') + ' …', true);
+      try { ai = await docsAiTexts(); } catch (e) { sysMsg('⚠️ KI-Texte übersprungen: ' + e.message, true); }
+    }
+    if (kind === 'a') downloadDoc('Auftragsbeschrieb - ' + boardName() + '.doc', genAuftrag(ai && ai.auftrag));
+    else downloadDoc('Beschaffungsantrag - ' + boardName() + '.doc', genBeschaffung(ai && ai.beschaffung));
+    sysMsg('📄 Dokument erzeugt und heruntergeladen.', true);
+  }
+  document.getElementById('dAuftrag').onclick = () => wordDoc('a');
+  document.getElementById('dBeschaffung').onclick = () => wordDoc('b');
+  document.getElementById('dTermin').onclick = () => { downloadXls('Terminprogramm - ' + boardName() + '.xls', genTermin()); sysMsg('📄 Terminprogramm erzeugt.', true); };
+  document.getElementById('dKosten').onclick = () => { downloadXls('Kostenvoranschlag - ' + boardName() + '.xls', genKosten()); sysMsg('📄 Kostenvoranschlag erzeugt.', true); };
+};
+
 /* ================================================================
    PHASEN-LUPE  – in eine Phase hineinzoomen & im Detail bearbeiten
    ================================================================ */
@@ -1108,30 +1391,22 @@ async function phaseTool(kind) {
 }
 
 /* ---------- Supabase: Konten & Cloud-Speicher ---------- */
-function bootState(d) {
-  state = (d && Array.isArray(d.phases) && d.phases.length) ? normalizeState(d) : defaultState();
-  goalInput.value = state.goal || '';
-  autoResizeGoal();
-  render();
-  kiLog.innerHTML = '';
-  convo = Array.isArray(state.kiConvo) ? state.kiConvo.slice() : [];
-  (Array.isArray(state.kiLog) ? state.kiLog : []).forEach(m => addMsg(m.cls, m.text, { restore: true }));
-}
 async function loadFromCloud() {
   try {
     const { data, error } = await sb.from('walls').select('data').eq('user_id', currentUser.id).maybeSingle();
     if (error) throw error;
-    bootState(data && data.data);
-    sysMsg('Willkommen! Wand geladen. Der Knopf «🤖 KI-Struktur» startet den Agenten-Schwarm.', true);
+    loadCollection(data && data.data);
+    sysMsg('Willkommen! ' + collection.boards.length + ' Prozesswand(-wände) geladen. Oben links wechseln oder «Wände…» verwalten.', true);
   } catch (e) {
-    bootState(defaultState());
+    loadCollection(null);
     sysMsg('Cloud-Laden fehlgeschlagen: ' + (e.message || e), true);
   }
 }
 async function cloudSave() {
   if (!sb || !currentUser) return;
+  syncActive();
   try {
-    const { error } = await sb.from('walls').upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() });
+    const { error } = await sb.from('walls').upsert({ user_id: currentUser.id, data: collection, updated_at: new Date().toISOString() });
     if (error) throw error;
   } catch (e) { /* lokale Kopie bleibt erhalten */ }
 }
@@ -1156,12 +1431,13 @@ async function startApp(user) {
 }
 async function initAuth() {
   if (!window.supabase) {
-    bootState(defaultState());
+    let local = null; try { local = JSON.parse(localStorage.getItem(STORE)); } catch (e) {}
+    loadCollection(local);
     showAuth('Keine Verbindung zum Anmelde-Dienst. Internetverbindung prüfen und Seite neu laden.');
     return;
   }
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  bootState(defaultState());
+  loadCollection(null);
   try {
     const { data } = await sb.auth.getSession();
     if (data && data.session) { startApp(data.session.user); return; }
