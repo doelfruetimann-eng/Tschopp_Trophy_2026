@@ -219,6 +219,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 .tk-ai-in { display:flex; gap:6px; margin-top:9px; }
 .tk-ai-in textarea { flex:1; font:inherit; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:38px; }
 .tk-ai-in .send { font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:0 14px; }
+.tk button.tk-ai.has { background:#e3ecf7; border-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -1482,7 +1483,7 @@ function renderLupe() {
         + '<div class="tk-dot ' + st + '" title="Status: ' + STATUS_LABEL[st] + '"></div>'
         + '<div class="tk-text" contenteditable="true" data-id="' + c.id + '">' + esc(c.text) + '</div>'
         + (c.doc ? '<button class="tk-doc" data-id="' + c.id + '" title="Ausarbeitung als Word herunterladen">&#128229;</button>' : '')
-        + '<button class="tk-ai" data-id="' + c.id + '" title="KI-Unterstützung">&#129302;</button>'
+        + '<button class="tk-ai' + (Array.isArray(c.chat) && c.chat.length ? ' has' : '') + '" data-id="' + c.id + '" title="' + (Array.isArray(c.chat) && c.chat.length ? 'Gespeicherter KI-Dialog – aufklappen' : 'KI-Unterstützung') + '">&#129302;</button>'
         + '<button class="tk-del" data-id="' + c.id + '" title="löschen">&#10005;</button></div>';
     });
     h += '</div>';
@@ -1530,26 +1531,32 @@ async function cardAI(id) {
   box.className = 'tk-ai-box';
   box.innerHTML = '<div class="tk-ai-msgs"></div>'
     + '<div class="tk-ai-in"><textarea rows="2" placeholder="Anweisung an die KI, z.B. «bitte Antragsformular verwenden» …"></textarea><button class="send">Senden</button></div>'
-    + '<div class="row"><button class="take">Letzte Antwort als Ergebnis übernehmen</button><button class="drop">Schliessen</button></div>';
+    + '<div class="row"><button class="take">Letzte Antwort als Ergebnis übernehmen</button><button class="drop">Einklappen</button><button class="wipe" style="background:#b14b46;color:#fff">Verlauf löschen</button></div>';
   row.after(box);
   const p = state.phases[lupeIdx];
   const sys = 'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du arbeitest eine einzelne Aufgabe konkret aus und passt sie auf Anweisung des Nutzers an (z.B. bestimmte Formulare, Vorlagen, Adressaten oder Detailtiefe). Kurz, praxisnah, auf Deutsch. Kein Vorgeplänkel.';
-  const dlg = []; let lastAnswer = '';
+  const dlg = Array.isArray(c.chat) ? c.chat.slice() : [];
+  let lastAnswer = ''; for (let i = dlg.length - 1; i >= 0; i--) { if (dlg[i].role === 'ai') { lastAnswer = dlg[i].text; break; } }
   const msgsEl = box.querySelector('.tk-ai-msgs');
   const inEl = box.querySelector('textarea');
   const renderDlg = () => { msgsEl.innerHTML = dlg.map(m => '<div class="am ' + m.role + '">' + esc(m.text) + '</div>').join(''); msgsEl.scrollTop = msgsEl.scrollHeight; };
+  const persist = think => { c.chat = dlg.filter(m => m !== think && !(m.text||'').startsWith('❌')).slice(-20); save(); };
   async function send(instr) {
     dlg.push({ role:'user', text: instr }); const think = { role:'ai', text:'… denkt nach …' }; dlg.push(think); renderDlg();
     try {
       const hist = 'Projektziel: ' + (state.goal||'-') + '\nPhase: ' + p.name + '\nAufgabe: "' + c.text + '"\n\n'
         + dlg.filter(m => m !== think).map(m => (m.role==='user' ? 'Anweisung: ' : 'Assistent: ') + m.text).join('\n\n');
       const out = await callClaude(sys, hist, 'claude-sonnet-5', 1100);
-      dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text: out }); lastAnswer = out; renderDlg();
-    } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text:'❌ ' + e.message }); renderDlg(); }
+      dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text: out }); lastAnswer = out; renderDlg(); persist();
+    } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text:'❌ ' + e.message }); renderDlg(); persist(); }
   }
   box.querySelector('.send').onclick = () => { const v = inEl.value.trim(); if (!v) return; inEl.value = ''; send(v); };
   inEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); box.querySelector('.send').click(); } });
-  box.querySelector('.drop').onclick = () => box.remove();
+  box.querySelector('.drop').onclick = () => { box.remove(); renderLupe(); };
+  box.querySelector('.wipe').onclick = () => {
+    if (!box.dataset.arm) { box.dataset.arm = '1'; box.querySelector('.wipe').textContent = 'Wirklich löschen?'; return; }
+    delete c.chat; save(); box.remove(); renderLupe();
+  };
   box.querySelector('.take').onclick = () => {
     if (!lastAnswer) return;
     const first = lastAnswer.split('\n').find(l => l.trim()) || lastAnswer;
@@ -1558,7 +1565,8 @@ async function cardAI(id) {
     save(); renderLupe(); render();
     sysMsg('📄 Ausarbeitung auf der Dokumentationsebene gespeichert – Download über das 📥-Symbol in der Lupe.', true);
   };
-  send('Bitte diese Aufgabe konkret ausarbeiten: Teilschritte, erwartetes Ergebnis, worauf achten.');
+  renderDlg();
+  if (!dlg.length) send('Bitte diese Aufgabe konkret ausarbeiten: Teilschritte, erwartetes Ergebnis, worauf achten.');
 }
 
 /* Phasen-Analyse-Tools (mit Freigabe) */
