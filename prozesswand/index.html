@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V25';
+const APP_VERSION = 'V26';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -419,6 +419,7 @@ function loadCollection(d) {
   if (d && d.logo) collection.logo = d.logo;
   if (d && d.apiKey) collection.apiKey = d.apiKey;
   if (d && Array.isArray(d.templates)) collection.templates = d.templates;
+  if (d && d.docStyle) collection.docStyle = d.docStyle;
   if (d && Array.isArray(d.boards) && d.boards.length) {
     collection.boards = d.boards.map(b => ({ id: b.id || uid('b'), name: b.name || 'Wand', state: normalizeState(b.state || {}) }));
     collection.activeId = d.activeId || collection.boards[0].id;
@@ -760,7 +761,7 @@ function openPostitModal(id) {
     try {
       const hist = 'Projektziel: ' + (state.goal || '-') + '\nPhase: ' + (ph.name || '-') + '\nPost-it: "' + cleanTxt(card.text) + '"\n\n'
         + dlg.filter(m => m !== think).map(m => (m.role === 'user' ? 'Anweisung: ' : 'Assistent: ') + m.text).join('\n\n');
-      const out = await callClaude('Du bist Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du hilfst, dieses Post-it anzupassen, auszuarbeiten oder Aufgaben abzuleiten. Kurz, praxisnah, Deutsch, kein Vorgeplänkel.', hist, CHAT_MODEL, 1100);
+      const out = await callClaude('Du bist Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du hilfst, dieses Post-it anzupassen, auszuarbeiten oder Aufgaben abzuleiten. Kurz, praxisnah, Deutsch, kein Vorgeplänkel.\nFür Dokumente/Vorlagen gilt immer diese Standard-Anweisung des Nutzers: ' + docStyle(), hist, CHAT_MODEL, 1100);
       dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: out }); lastAnswer = out;
       card.chat = dlg.filter(m => !(m.text || '').startsWith('❌')).slice(-20); save();
       renderDlg();
@@ -778,7 +779,7 @@ function openPostitModal(id) {
     + '\nPhase ' + (pi + 1) + ': ' + (ph.name || '-') + (ph.ziel ? ' – Phasenziel: ' + ph.ziel : '')
     + '\nArbeitspaket (Post-it): "' + cleanTxt(card.text) + '"'
     + ((card.todos || []).length ? '\nTeilaufgaben:\n' + card.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
-    + '\n\nAuftrag: Erstelle das vollständige Dokument, das für dieses Arbeitspaket benötigt wird. Wähle selbst die passende Dokumentart (z.B. Konzept, Antrag, Checkliste, Protokollvorlage oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellenverzeichnis). Deutsch, vollständig ausgearbeiteter Entwurf, offene Punkte als [Platzhalter].';
+    + '\n\nAuftrag: Erstelle das Dokument, das für dieses Arbeitspaket benötigt wird. Wähle selbst die passende Dokumentart (z.B. Konzept, Antrag, Checkliste, Protokollvorlage oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellenverzeichnis).\nStil-Vorgabe: ' + docStyle();
   document.getElementById('mPrompt').onclick = async function () {
     try { await navigator.clipboard.writeText(buildTaskPrompt()); this.textContent = '✓ kopiert'; }
     catch (e) { dlg.push({ role: 'ai', text: buildTaskPrompt() }); renderDlg(); }
@@ -790,7 +791,7 @@ function openPostitModal(id) {
     dlg.push({ role: 'user', text: '[Dokument erzeugen]' }); const think = { role: 'ai', text: '📄 Dokument wird erstellt …' }; dlg.push(think); renderDlg();
     try {
       const out = await callClaude(
-        'Du erstellst vollständige, sofort brauchbare Arbeitsdokumente. Wähle die passende Dokumentart selbst (Konzept, Antrag, Checkliste, Protokollvorlage, oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellen). Deutsch, klar strukturiert mit Überschriften, offene Punkte als [Platzhalter]. Kein Vorgeplänkel.',
+        'Du erstellst sofort brauchbare Arbeitsdokumente. Wähle die passende Dokumentart selbst (Konzept, Antrag, Checkliste, Protokollvorlage, oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellen). Deutsch, offene Punkte als [Platzhalter].\nStandard-Anweisung des Nutzers (immer strikt befolgen): ' + docStyle(),
         buildTaskPrompt(), CHAT_MODEL, 3500);
       dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: out }); lastAnswer = out;
       card.chat = dlg.filter(m => !(m.text || '').startsWith('❌')).slice(-20);
@@ -1343,6 +1344,9 @@ document.getElementById('boardMenu').onclick = () => {
    Terminprogramm, Kostenvoranschlag (nach Vorlagen D. Rütimann)
    ================================================================ */
 function boardName() { const b = activeBoard(); return b ? b.name : 'Projekt'; }
+/* Dauerhafte Stil-Anweisung für alle KI-Dokumente – im Konto gespeichert, gilt überall */
+const DOC_STYLE_DEFAULT = 'Erstelle alle Dokumente als Kurzfassung: max. 2 Seiten, Checklisten und nummerierte Listen statt Tabellen, keine Markdown-Sonderzeichen (#, |, **), Platzhalter nur wo zwingend nötig, direkt in Word kopierbar. Kein Vorgeplänkel.';
+function docStyle() { return (collection && collection.docStyle && collection.docStyle.trim()) || DOC_STYLE_DEFAULT; }
 function heute() { const d = new Date(); return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear(); }
 function tasksOfPhase(i) { return cardsInPhaseLane(i, 'handlung'); }
 function cleanTxt(t) { return (t||'').replace(/^[⚠️↻👥📄🎯🧭💡]+\s*/u, ''); }
@@ -1596,6 +1600,8 @@ document.getElementById('docsBtn').onclick = () => {
   openModal('<h3>Dokumente aus der Prozesswand</h3>'
     + '<p style="font-size:12px;color:var(--muted);margin:0 0 6px">Erzeugt Entwürfe nach deinen Vorlagen – gefüllt aus Wand «' + esc(boardName()) + '». Platzhalter [in Klammern] sind fachlich zu vervollständigen.</p>'
     + '<label>Logo (zentral gespeichert)</label><div>' + logoRow + '</div>'
+    + '<label style="margin-top:12px">Standard-Anweisung f&uuml;r alle KI-Dokumente <span style="font-weight:400;text-transform:none">(im Konto gespeichert, gilt immer und &uuml;berall)</span></label>'
+    + '<textarea id="docStyleTa" rows="3" style="font-size:12px">' + esc(docStyle()) + '</textarea>'
     + '<label style="margin-top:12px">Word-Dokumente</label>'
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dAuftrag">Auftragsbeschrieb (.doc)</button><button class="go" id="dBeschaffung">Beschaffungsantrag (.doc)</button></div>'
     + '<label style="margin-top:6px"><input type="checkbox" id="dAi" checked> Texte (Ausgangslage, Nutzen, Begründung) von der KI ausformulieren lassen</label>'
@@ -1611,6 +1617,10 @@ document.getElementById('docsBtn').onclick = () => {
     + '<p style="font-size:11px;color:var(--muted);margin:6px 0 0">Damit eine eigene Vorlage automatisch aus der Wand bef&uuml;llt wird, schick sie Claude im Chat &ndash; sie wird dann wie die vier Standard-Dokumente eingebaut.</p>'
     + '<div class="btnrow"><button id="mCancel">Schliessen</button></div>');
   document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('docStyleTa').addEventListener('change', function () {
+    collection.docStyle = this.value.trim(); save();
+    sysMsg('✓ Standard-Anweisung für KI-Dokumente gespeichert – gilt ab sofort überall.', true);
+  });
   modalBox.querySelectorAll('.tpl-dl').forEach(btn => btn.onclick = () => {
     const t = collection.templates[+btn.dataset.j]; if (!t) return;
     const a = document.createElement('a'); a.href = t.data; a.download = t.name; a.click();
@@ -2001,7 +2011,7 @@ async function cardAI(id) {
     + '<div class="row"><button class="take">Letzte Antwort als Ergebnis übernehmen</button><button class="drop">Einklappen</button><button class="wipe" style="background:#b14b46;color:#fff">Verlauf löschen</button></div>';
   row.after(box);
   const p = state.phases[lupeIdx];
-  const sys = 'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du arbeitest eine einzelne Aufgabe konkret aus und passt sie auf Anweisung des Nutzers an (z.B. bestimmte Formulare, Vorlagen, Adressaten oder Detailtiefe). Kurz, praxisnah, auf Deutsch. Kein Vorgeplänkel.';
+  const sys = 'Du bist ein Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du arbeitest eine einzelne Aufgabe konkret aus und passt sie auf Anweisung des Nutzers an (z.B. bestimmte Formulare, Vorlagen, Adressaten oder Detailtiefe). Kurz, praxisnah, auf Deutsch. Kein Vorgeplänkel.\nFür Dokumente/Vorlagen gilt immer diese Standard-Anweisung des Nutzers: ' + docStyle();
   const dlg = Array.isArray(c.chat) ? c.chat.slice() : [];
   let lastAnswer = ''; for (let i = dlg.length - 1; i >= 0; i--) { if (dlg[i].role === 'ai') { lastAnswer = dlg[i].text; break; } }
   const msgsEl = box.querySelector('.tk-ai-msgs');
