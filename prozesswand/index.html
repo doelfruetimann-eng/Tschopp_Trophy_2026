@@ -706,7 +706,13 @@ function getKey() {
   return '';
 }
 function openKeyModal(then) {
-  openModal('<h3>Anthropic API-Schl&uuml;ssel</h3><p style="font-size:12px;color:var(--muted)">Wird nur in diesem Browser gespeichert. Schl&uuml;ssel gibt es unter console.anthropic.com &rarr; API Keys.</p><label>Schl&uuml;ssel</label><input type="password" id="mKey" value="' + esc(getKey()) + '" placeholder="sk-ant-..."><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button></div>');
+  openModal('<h3>Anthropic API-Schl&uuml;ssel</h3><p style="font-size:12px;color:var(--muted)">Wird in deinem Konto gespeichert und gilt auf allen Ger&auml;ten. Schl&uuml;ssel gibt es unter console.anthropic.com &rarr; API Keys.</p><label>Schl&uuml;ssel</label><input type="password" id="mKey" value="' + esc(getKey()) + '" placeholder="sk-ant-..."><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mKeyDel">Schl&uuml;ssel l&ouml;schen</button></div>');
+  document.getElementById('mKeyDel').onclick = () => {
+    [KEY_STORE, 'anthropic-key', 'anthropic-api-key', 'claude-api-key', 'osto-api-key'].forEach(k => localStorage.removeItem(k));
+    if (collection) { delete collection.apiKey; save(); }
+    document.getElementById('mKey').value = '';
+    sysMsg('API-Schlüssel überall gelöscht (Browser + Konto). Neuen Schlüssel eintragen, dann funktioniert die KI wieder.', true);
+  };
   document.getElementById('mSave').onclick = () => {
     const v = cleanKey(document.getElementById('mKey').value);
     if (v) {
