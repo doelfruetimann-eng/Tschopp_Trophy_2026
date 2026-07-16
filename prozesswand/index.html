@@ -46,6 +46,9 @@ header button.active { background:#e3ecf7; border-color:var(--accent); color:var
 .postit:active { cursor:grabbing; }
 .postit.sel { outline:3px solid var(--accent); }
 .postit.dim { opacity:.55; }
+.postit.guide-now { outline:3px solid #b3543f; box-shadow:0 0 0 6px rgba(179,84,63,.28), 0 3px 10px rgba(0,0,0,.3); z-index:30; }
+#overlay.guide-pos { background:rgba(20,28,40,.10); align-items:flex-start; justify-content:flex-end; padding:64px 14px 0 0; }
+#overlay.guide-pos .modal { width:460px; max-width:92vw; max-height:80vh; box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 0 2px #b3543f; }
 
 .ms-line { position:absolute; width:0; border-left:2px dashed #b3543f; z-index:6; pointer-events:none; }
 .ms-flag { position:absolute; transform:translateX(-50%); background:#b3543f; color:#fff; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:5px; z-index:14; cursor:grab; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; box-shadow:0 1px 4px rgba(0,0,0,.25); }
@@ -318,7 +321,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V20';
+const APP_VERSION = 'V21';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -503,6 +506,7 @@ function render() {
 
   canvas.innerHTML = h;
   syncLaneLabels();
+  if (guide) markGuideCard();
 }
 const wallScrollEl = document.getElementById('wallScroll');
 function syncLaneLabels() {
@@ -666,7 +670,14 @@ canvas.addEventListener('dblclick', e => {
 /* ---------- Modals ---------- */
 const overlay = document.getElementById('overlay'), modalBox = document.getElementById('modalBox');
 function openModal(html, wide) { modalBox.className = 'modal' + (wide ? ' wide' : ''); modalBox.innerHTML = html; overlay.style.display = 'flex'; }
-function closeModal() { overlay.style.display = 'none'; modalBox.innerHTML = ''; modalBox.className = 'modal'; }
+function closeModal() {
+  overlay.style.display = 'none'; modalBox.innerHTML = ''; modalBox.className = 'modal';
+  if (overlay.classList.contains('guide-pos')) {
+    overlay.classList.remove('guide-pos');
+    guide = null;
+    canvas.querySelectorAll('.postit.guide-now').forEach(e => e.classList.remove('guide-now'));
+  }
+}
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
 function openPostitModal(id) {
@@ -1567,6 +1578,17 @@ document.getElementById('checkBtn').onclick = async () => {
    ================================================================ */
 const GUIDE_ORDER = ['sache', 'handlung', 'input', 'mgmt2', 'mgmt1', 'doku', 'anspruch', 'reflexion'];
 let guide = null;
+function markGuideCard() {
+  canvas.querySelectorAll('.postit.guide-now').forEach(e => e.classList.remove('guide-now'));
+  if (!guide) return;
+  const id = guide.list[guide.idx], c = getPostit(id);
+  const el = canvas.querySelector('.postit[data-pid="' + id + '"]');
+  if (!el || !c) return;
+  el.classList.add('guide-now');
+  /* Wand so scrollen, dass die Karte links neben dem Begleiter-Fenster sichtbar ist */
+  wallScrollEl.scrollLeft = Math.max(0, LABEL_W + c.x + PI_W / 2 - Math.max(220, (wallScrollEl.clientWidth - 480) / 2));
+  wallScrollEl.scrollTop = Math.max(0, HEADER_H + c.y - wallScrollEl.clientHeight / 2 + 30);
+}
 function buildGuideList() {
   const list = [];
   state.phases.forEach((p, i) => {
@@ -1602,6 +1624,8 @@ function renderGuide() {
     + '<button class="go" id="gNext">' + (last ? 'Fertig &#10003;' : 'Weiter &#9654;') + '</button>'
     + '<button id="gRedo">&#129302; Neu erl&auml;utern</button>'
     + '<button id="gClose" style="margin-left:auto">Schliessen</button></div>', true);
+  overlay.classList.add('guide-pos');
+  markGuideCard();
   const saveText = () => {
     const v = document.getElementById('gText').value.trim();
     if (v && v !== cleanTxt(c.text)) {
