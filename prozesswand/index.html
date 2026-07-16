@@ -708,7 +708,7 @@ function getKey() {
 function openKeyModal(then) {
   openModal('<h3>Anthropic API-Schl&uuml;ssel</h3><p style="font-size:12px;color:var(--muted)">Wird nur in diesem Browser gespeichert. Schl&uuml;ssel gibt es unter console.anthropic.com &rarr; API Keys.</p><label>Schl&uuml;ssel</label><input type="password" id="mKey" value="' + esc(getKey()) + '" placeholder="sk-ant-..."><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button></div>');
   document.getElementById('mSave').onclick = () => {
-    const v = document.getElementById('mKey').value.trim();
+    const v = cleanKey(document.getElementById('mKey').value);
     if (v) {
       localStorage.setItem(KEY_STORE, v);
       if (collection) { collection.apiKey = v; save(); } // im Konto speichern – folgt dir auf jedes Gerät
@@ -720,9 +720,11 @@ function openKeyModal(then) {
 }
 document.getElementById('keyBtn').onclick = () => openKeyModal(null);
 
+function cleanKey(s) { return (s || '').replace(/[^\x20-\x7E]/g, '').trim(); }
 async function callClaude(system, user, model, maxTok) {
-  const key = getKey();
+  const key = cleanKey(getKey());
   if (!key) throw new Error('Kein API-Schlüssel hinterlegt.');
+  if (!/^sk-ant-/.test(key)) throw new Error('Der gespeicherte API-Schlüssel sieht unvollständig aus – bitte über «API-Schlüssel» komplett neu einfügen (beginnt mit sk-ant-…).');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
