@@ -571,7 +571,10 @@ overlay.addEventListener('click', e => { if (e.target === overlay) closeModal();
 function openPostitModal(id) {
   const p = getPostit(id); if (!p) return;
   let sw = ''; PALETTE.forEach(c => { sw += '<div class="swatch' + (p.color === c ? ' sel' : '') + '" data-c="' + c + '" style="background:' + c + '"></div>'; });
-  openModal('<h3>Post-it bearbeiten</h3><label>Text</label><textarea id="mText" rows="4">' + esc(p.text) + '</textarea><label>Farbe</label><div class="swatches">' + sw + '</div><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
+  openModal('<h3>Post-it bearbeiten</h3><label>Text</label><textarea id="mText" rows="4">' + esc(p.text) + '</textarea><label>Farbe</label><div class="swatches">' + sw + '</div>'
+    + (p.doc ? '<div class="btnrow" style="margin-top:10px"><button id="mDocDl">&#128229; Gespeicherte Ausarbeitung herunterladen (.doc)</button></div>' : '')
+    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
+  if (p.doc) document.getElementById('mDocDl').onclick = () => downloadCardDoc(id);
   modalBox.querySelectorAll('.swatch').forEach(el => el.onclick = () => { modalBox.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); });
   document.getElementById('mSave').onclick = () => {
     p.text = document.getElementById('mText').value;
@@ -1478,6 +1481,7 @@ function renderLupe() {
       h += '<div class="tk' + (st==='erledigt'?' done':'') + '" data-id="' + c.id + '">'
         + '<div class="tk-dot ' + st + '" title="Status: ' + STATUS_LABEL[st] + '"></div>'
         + '<div class="tk-text" contenteditable="true" data-id="' + c.id + '">' + esc(c.text) + '</div>'
+        + (c.doc ? '<button class="tk-doc" data-id="' + c.id + '" title="Ausarbeitung als Word herunterladen">&#128229;</button>' : '')
         + '<button class="tk-ai" data-id="' + c.id + '" title="KI-Unterstützung">&#129302;</button>'
         + '<button class="tk-del" data-id="' + c.id + '" title="löschen">&#10005;</button></div>';
     });
@@ -1494,11 +1498,19 @@ lupeBody.addEventListener('click', e => {
   if (del) { state.postits = state.postits.filter(x => x.id !== del.dataset.id); state.connections = state.connections.filter(c => c.from !== del.dataset.id && c.to !== del.dataset.id); save(); renderLupe(); render(); return; }
   const add = e.target.closest('.add');
   if (add) { addCard(lupeIdx, add.dataset.addlane, 'Neuer Eintrag – Text bearbeiten', 'offen'); save(); renderLupe(); render(); return; }
+  const dl = e.target.closest('.tk-doc');
+  if (dl) { downloadCardDoc(dl.dataset.id); return; }
   const ai = e.target.closest('.tk-ai');
   if (ai) { cardAI(ai.dataset.id); return; }
   const tool = e.target.closest('.lupe-tool');
   if (tool) { phaseTool(tool.dataset.kind); return; }
 });
+function downloadCardDoc(id) {
+  const c = getPostit(id); if (!c || !c.doc) return;
+  const title = cleanTxt(c.text).slice(0, 60);
+  const body = '<div style="white-space:pre-wrap;font-size:11pt;line-height:1.5">' + esc(c.doc) + '</div>';
+  downloadDoc((title || 'Ausarbeitung').replace(/[\\/:*?"<>|]/g, '-') + '.doc', docShell(title || 'Ausarbeitung', body));
+}
 lupeBody.addEventListener('focusout', e => {
   const tx = e.target.closest('.tk-text');
   if (tx) { const c = getPostit(tx.dataset.id); if (c) { const v = tx.textContent.trim(); if (v && v !== c.text) { c.text = v; save(); render(); } } return; }
@@ -1541,8 +1553,10 @@ async function cardAI(id) {
   box.querySelector('.take').onclick = () => {
     if (!lastAnswer) return;
     const first = lastAnswer.split('\n').find(l => l.trim()) || lastAnswer;
-    addCard(lupeIdx, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•#\d.\s]+/, ''), 'offen');
+    const nc = addCard(lupeIdx, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•#\d.\s]+/, ''), 'offen');
+    nc.doc = lastAnswer; // kompletter Text bleibt in der Karte gespeichert
     save(); renderLupe(); render();
+    sysMsg('📄 Ausarbeitung auf der Dokumentationsebene gespeichert – Download über das 📥-Symbol in der Lupe.', true);
   };
   send('Bitte diese Aufgabe konkret ausarbeiten: Teilschritte, erwartetes Ergebnis, worauf achten.');
 }
