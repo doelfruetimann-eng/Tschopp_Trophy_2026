@@ -47,6 +47,8 @@ header button.active { background:#e3ecf7; border-color:var(--accent); color:var
 .postit.sel { outline:3px solid var(--accent); }
 .postit.dim { opacity:.55; }
 .postit.guide-now { outline:3px solid #b3543f; box-shadow:0 0 0 6px rgba(179,84,63,.28), 0 3px 10px rgba(0,0,0,.3); z-index:30; }
+.todoTag { display:inline-block; margin-left:6px; font-size:9.5px; font-weight:700; color:#3f6fb0; background:rgba(255,255,255,.75); border-radius:7px; padding:0 5px; }
+.td-del { flex:none; font-size:11px; cursor:pointer; border:1px solid var(--line); border-radius:5px; background:#f6f7f9; padding:2px 6px; }
 #overlay.guide-pos { background:rgba(20,28,40,.10); align-items:flex-start; justify-content:flex-end; padding:64px 14px 0 0; }
 #overlay.guide-pos .modal { width:460px; max-width:92vw; max-height:80vh; box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 0 2px #b3543f; }
 
@@ -321,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V21';
+const APP_VERSION = 'V22';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -489,7 +491,8 @@ function render() {
 
   s.postits.forEach(p => {
     const st = p.status || 'offen';
-    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + '</div>';
+    const tds = Array.isArray(p.todos) && p.todos.length ? '<span class="todoTag">&#9745; ' + p.todos.filter(t => t.done).length + '/' + p.todos.length + '</span>' : '';
+    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + tds + '</div>';
   });
 
   h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f5fae"/></marker></defs>';
@@ -681,16 +684,85 @@ function closeModal() {
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
 function openPostitModal(id) {
-  const p = getPostit(id); if (!p) return;
-  let sw = ''; PALETTE.forEach(c => { sw += '<div class="swatch' + (p.color === c ? ' sel' : '') + '" data-c="' + c + '" style="background:' + c + '"></div>'; });
-  openModal('<h3>Post-it bearbeiten</h3><label>Text</label><textarea id="mText" rows="4">' + esc(p.text) + '</textarea><label>Farbe</label><div class="swatches">' + sw + '</div>'
-    + (p.doc ? '<div class="btnrow" style="margin-top:10px"><button id="mDocDl">&#128229; Gespeicherte Ausarbeitung herunterladen (.doc)</button></div>' : '')
-    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
-  if (p.doc) document.getElementById('mDocDl').onclick = () => downloadCardDoc(id);
+  const card = getPostit(id); if (!card) return;
+  const pi = phaseIndexOfX(card.x), ph = state.phases[pi] || {};
+  let sw = ''; PALETTE.forEach(c => { sw += '<div class="swatch' + (card.color === c ? ' sel' : '') + '" data-c="' + c + '" style="background:' + c + '"></div>'; });
+  const todosHtml = () => ((card.todos || []).map((t, j) =>
+    '<div class="tk" style="margin-bottom:5px"><div class="tk-dot ' + (t.done ? 'erledigt' : '') + '" data-tj="' + j + '"></div>'
+    + '<div class="tk-text" style="' + (t.done ? 'text-decoration:line-through;color:var(--muted)' : '') + '">' + esc(t.t) + '</div>'
+    + '<button class="td-del" data-tj="' + j + '">&#10005;</button></div>').join('')
+    || '<div style="font-size:12px;color:var(--muted)">&ndash; noch keine Aufgaben &ndash;</div>');
+  openModal('<h3>Post-it &middot; Phase ' + (pi + 1) + ' &middot; ' + esc(laneTitle(LANES[LANE_KEYS.indexOf(laneKeyOfY(card.y))] || LANES[0])) + '</h3>'
+    + '<label>Text</label><textarea id="mText" rows="3">' + esc(card.text) + '</textarea>'
+    + '<label>Farbe</label><div class="swatches">' + sw + '</div>'
+    + (card.doc ? '<div class="btnrow" style="margin-top:8px"><button id="mDocDl">&#128229; Gespeicherte Ausarbeitung (.doc)</button></div>' : '')
+    + '<label style="margin-top:12px">Aufgaben zu diesem Post-it <span style="font-weight:400;text-transform:none">(erscheinen im Dashboard unter &laquo;Prozess-Aufgaben&raquo;)</span></label>'
+    + '<div id="mTodos">' + todosHtml() + '</div>'
+    + '<div style="display:flex;gap:6px;margin-top:6px"><input type="text" id="mTodoNew" placeholder="Neue Aufgabe…" style="flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">'
+    + '<button id="mTodoAdd" style="font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:0;border-radius:6px;background:var(--accent);color:#fff;padding:0 12px">+</button>'
+    + '<button id="mTodoAI" style="font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;background:#eef4fb;padding:0 10px">&#129302; vorschlagen</button></div>'
+    + '<label style="margin-top:12px">KI-Dialog zu diesem Post-it</label>'
+    + '<div class="tk-ai-box" style="margin:0"><div class="tk-ai-msgs" id="mMsgs"></div>'
+    + '<div class="tk-ai-in"><textarea id="mAsk" rows="2" placeholder="Anweisung an die KI, z.B. «konkreter formulieren» oder «arbeite das aus» …"></textarea><button class="send" id="mSend">Senden</button></div>'
+    + '<div class="row"><button class="take" id="mTake">Letzte Antwort als Ergebnis übernehmen</button></div></div>'
+    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>', true);
+  if (card.doc) document.getElementById('mDocDl').onclick = () => downloadCardDoc(id);
   modalBox.querySelectorAll('.swatch').forEach(el => el.onclick = () => { modalBox.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); });
+  /* Aufgaben */
+  const refreshTodos = () => { document.getElementById('mTodos').innerHTML = todosHtml(); };
+  document.getElementById('mTodos').addEventListener('click', e => {
+    const dot = e.target.closest('.tk-dot');
+    if (dot) { card.todos[+dot.dataset.tj].done = !card.todos[+dot.dataset.tj].done; save(); render(); refreshTodos(); return; }
+    const del = e.target.closest('.td-del');
+    if (del) { card.todos.splice(+del.dataset.tj, 1); save(); render(); refreshTodos(); }
+  });
+  const addTodo = t => { if (!t) return; if (!Array.isArray(card.todos)) card.todos = []; card.todos.push({ t, done: false }); save(); render(); refreshTodos(); };
+  document.getElementById('mTodoAdd').onclick = () => { const el = document.getElementById('mTodoNew'); addTodo(el.value.trim()); el.value = ''; };
+  document.getElementById('mTodoNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('mTodoAdd').click(); } });
+  document.getElementById('mTodoAI').onclick = async function () {
+    if (!getKey()) { openKeyModal(null); return; }
+    this.disabled = true; this.textContent = '… denkt …';
+    try {
+      const out = await callClaude(
+        'Du definierst konkrete Arbeits-Aufgaben zu einem Post-it einer Projekt-Prozesswand. Antworte NUR als JSON: {"aufgaben":["…","…"]} — 3 bis 5 kurze, umsetzbare Aufgaben (je max. 12 Worte), keine Wiederholung bestehender.',
+        'Projektziel: ' + (state.goal || '-') + '\nPhase: ' + (ph.name || '-') + '\nPost-it: "' + cleanTxt(card.text) + '"'
+        + ((card.todos || []).length ? '\nBestehende Aufgaben: ' + card.todos.map(t => t.t).join('; ') : ''),
+        CHAT_MODEL, 600);
+      (extractJSON(out).aufgaben || []).slice(0, 5).forEach(t => { if (typeof t === 'string' && t.trim()) addTodo(t.trim()); });
+    } catch (e) { sysMsg('❌ Aufgaben-Vorschlag: ' + e.message, true); }
+    this.disabled = false; this.innerHTML = '&#129302; vorschlagen';
+  };
+  /* KI-Dialog (gleicher Verlauf wie in der Lupe, in der Karte gespeichert) */
+  const dlg = Array.isArray(card.chat) ? card.chat.slice() : [];
+  let lastAnswer = ''; for (let i = dlg.length - 1; i >= 0; i--) { if (dlg[i].role === 'ai') { lastAnswer = dlg[i].text; break; } }
+  const msgsEl = document.getElementById('mMsgs');
+  const renderDlg = () => { msgsEl.innerHTML = dlg.length ? dlg.map(m => '<div class="am ' + m.role + '">' + esc(m.text) + '</div>').join('') : '<div style="font-size:12px;color:var(--muted)">Stell eine Frage oder gib eine Anweisung – der Verlauf wird gespeichert.</div>'; msgsEl.scrollTop = msgsEl.scrollHeight; };
+  renderDlg();
+  document.getElementById('mSend').onclick = async () => {
+    const v = document.getElementById('mAsk').value.trim(); if (!v) return;
+    if (!getKey()) { openKeyModal(null); return; }
+    document.getElementById('mAsk').value = '';
+    dlg.push({ role: 'user', text: v }); const think = { role: 'ai', text: '… denkt nach …' }; dlg.push(think); renderDlg();
+    try {
+      const hist = 'Projektziel: ' + (state.goal || '-') + '\nPhase: ' + (ph.name || '-') + '\nPost-it: "' + cleanTxt(card.text) + '"\n\n'
+        + dlg.filter(m => m !== think).map(m => (m.role === 'user' ? 'Anweisung: ' : 'Assistent: ') + m.text).join('\n\n');
+      const out = await callClaude('Du bist Fach-Assistent in einer Projekt-Prozesswand (Systems Engineering). Du hilfst, dieses Post-it anzupassen, auszuarbeiten oder Aufgaben abzuleiten. Kurz, praxisnah, Deutsch, kein Vorgeplänkel.', hist, CHAT_MODEL, 1100);
+      dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: out }); lastAnswer = out;
+      card.chat = dlg.filter(m => !(m.text || '').startsWith('❌')).slice(-20); save();
+      renderDlg();
+    } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: '❌ ' + e.message }); renderDlg(); }
+  };
+  document.getElementById('mAsk').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('mSend').click(); } });
+  document.getElementById('mTake').onclick = () => {
+    if (!lastAnswer) return;
+    const first = lastAnswer.split('\n').find(l => l.trim()) || lastAnswer;
+    const nc = addCard(pi, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•#\d.\s]+/, ''), 'offen');
+    nc.doc = lastAnswer; save(); render();
+    sysMsg('📄 Ausarbeitung auf der Dokumentationsebene gespeichert.', true);
+  };
   document.getElementById('mSave').onclick = () => {
-    p.text = document.getElementById('mText').value;
-    const sel = modalBox.querySelector('.swatch.sel'); if (sel) p.color = sel.dataset.c;
+    card.text = document.getElementById('mText').value;
+    const sel = modalBox.querySelector('.swatch.sel'); if (sel) card.color = sel.dataset.c;
     save(); render(); closeModal();
   };
   document.getElementById('mCancel').onclick = closeModal;
@@ -1322,10 +1394,12 @@ function genAuftrag(ai) {
     + ulOrPlatz([state.goal].concat(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel))).filter(Boolean), 'Zielbild und Phasenziele ergänzen');
   b += '<h2>3. Nutzen</h2>' + (ai.nutzen ? txtOrPlatz(ai.nutzen, '') : '<ul><li class="platz">[betrieblicher Nutzen]</li><li class="platz">[qualitativer Nutzen]</li><li class="platz">[finanzieller Nutzen]</li></ul>');
   b += '<h2>4. Projektumfang</h2>'
-    + '<p>Der Projektumfang umfasst die nachstehenden, in der Prozesswand erfassten Phasen und Aufgaben. Die Detailplanung und verbindliche Beauftragung erfolgen nach Freigabe.</p>';
+    + '<p>Der Projektumfang umfasst die nachstehenden, in der Prozesswand erfassten Phasen und Aufgaben. Die Detailplanung und verbindliche Beauftragung erfolgen nach Freigabe.</p>'
+    + '<table><tr><th style="width:36pt">Phase</th><th style="width:150pt">Bezeichnung</th><th>Ergebnis / Output</th><th style="width:80pt">Termin</th></tr>';
   state.phases.forEach((p, i) => {
-    b += '<p><b>Phase ' + (i+1) + ' – ' + esc(p.name) + '</b>' + (p.output ? ' &middot; Ergebnis: ' + esc(p.output) : '') + '</p>';
+    b += '<tr><td class="c">' + (i+1) + '</td><td><b>' + esc(p.name) + '</b></td><td>' + (p.output ? esc(p.output) : '<span class="platz">[Ergebnis definieren]</span>') + '</td><td>' + esc(p.wann || '') + '</td></tr>';
   });
+  b += '</table>';
   b += '<p><b>Übergeordnete Leistungen:</b></p><ul>'
     + '<li>Projektleitung und Koordination' + (p0.wer ? ' (' + esc(p0.wer) + ')' : '') + '</li>'
     + '<li>Einholen der Offerten / Angebote je Bereich</li>'
@@ -1696,6 +1770,21 @@ function renderDash() {
     + '<div class="tile"><div class="tl">Gesamtziel</div><div class="ts" style="margin-top:4px">' + esc((state.goal||'– noch nicht definiert –').slice(0,160)) + '</div></div>'
     + '</div>';
 
+  const todos = [];
+  state.postits.forEach(c => (Array.isArray(c.todos) ? c.todos : []).forEach((t, j) => todos.push({ c, t, j })));
+  if (todos.length) {
+    const tdone = todos.filter(x => x.t.done).length;
+    h += '<div class="dash-sec"><h3>Prozess-Aufgaben <span class="cnt" style="font-weight:400;color:var(--muted);font-size:11px">' + tdone + ' von ' + todos.length + ' erledigt &middot; Punkt anklicken = abhaken</span></h3>'
+      + '<table class="ph-tab"><tr><th style="width:26px"></th><th>Aufgabe</th><th>Post-it</th><th>Phase</th></tr>';
+    todos.forEach(x => {
+      h += '<tr><td><div class="tk-dot ' + (x.t.done ? 'erledigt' : '') + '" data-tcid="' + x.c.id + '" data-tj="' + x.j + '" style="cursor:pointer;width:15px;height:15px;border-radius:50%;border:2px solid ' + (x.t.done ? '#2f8a4c;background:#2f8a4c' : '#cfd5dd') + '"></div></td>'
+        + '<td' + (x.t.done ? ' style="text-decoration:line-through;color:var(--muted)"' : '') + '>' + esc(x.t.t) + '</td>'
+        + '<td style="color:var(--muted)">' + esc(cleanTxt(x.c.text).slice(0, 44)) + '</td>'
+        + '<td>' + (phaseIndexOfX(x.c.x) + 1) + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+
   h += '<div class="dash-sec"><h3>Phasen &middot; Fortschritt &middot; Verantwortliche &middot; Termine <span style="font-weight:400;color:var(--muted);font-size:11px">(Zeile anklicken = Phasen-Lupe)</span></h3>'
     + '<table class="ph-tab"><tr><th>Nr.</th><th>Phase</th><th>Fortschritt</th><th></th><th>Verantwortlich</th><th>Termin</th><th>Risiken</th><th>Entscheid-Tor</th></tr>';
   state.phases.forEach((p, i) => {
@@ -1724,6 +1813,15 @@ function renderDash() {
   body.innerHTML = h;
 }
 document.getElementById('dashBody').addEventListener('click', e => {
+  const tdot = e.target.closest('[data-tcid]');
+  if (tdot) {
+    const c = getPostit(tdot.dataset.tcid);
+    if (c && Array.isArray(c.todos) && c.todos[+tdot.dataset.tj]) {
+      c.todos[+tdot.dataset.tj].done = !c.todos[+tdot.dataset.tj].done;
+      save(); renderDash(); render();
+    }
+    return;
+  }
   const card = e.target.closest('.kan-card');
   if (card) {
     const c = getPostit(card.dataset.cid);
