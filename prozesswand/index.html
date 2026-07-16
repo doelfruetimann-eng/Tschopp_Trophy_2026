@@ -133,6 +133,8 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 .postit.st-erledigt { opacity:.72; }
 .phase-zoom { position:absolute; top:6px; right:6px; z-index:10; font-size:12px; line-height:1; border:1px solid var(--line); border-radius:5px; background:#fff; cursor:pointer; padding:3px 5px; }
 .phase-zoom:hover { background:#e3ecf7; border-color:var(--accent); }
+.phase-fit { position:absolute; top:6px; right:32px; z-index:10; font-size:12px; line-height:1; border:1px solid var(--line); border-radius:5px; background:#fff; cursor:pointer; padding:3px 5px; }
+.phase-fit:hover { background:#e3ecf7; border-color:var(--accent); }
 
 /* ---- Phasen-Lupe ---- */
 #lupe { position:fixed; inset:0; z-index:70; display:none; background:rgba(20,28,40,.5); }
@@ -447,7 +449,7 @@ function render() {
 
   s.phases.forEach((p, i) => {
     const left = LABEL_W + phaseLeft(i, s);
-    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
+    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-fit" data-fi="' + i + '" title="Phase vergrössern &amp; Post-its nebeneinander anordnen">&#8646;</button><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
     if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
   });
 
@@ -485,7 +487,12 @@ let drag = null;
 canvas.addEventListener('pointerdown', e => {
   if (previewState) return;
   const rs = e.target.closest('.phase-resize');
-  if (rs) { const i = +rs.dataset.ri; drag = { type:'resize', i, x0:e.clientX, w0: state.phases[i].w }; e.preventDefault(); return; }
+  if (rs) {
+    const i = +rs.dataset.ri;
+    drag = { type:'resize', i, x0:e.clientX, w0: state.phases[i].w,
+      mine: LANE_KEYS.map(k => cardsInPhaseLane(i, k).map(c => c.id)) };
+    e.preventDefault(); return;
+  }
   const ms = e.target.closest('.ms-flag');
   if (ms) { const m = state.milestones.find(x => x.id === ms.dataset.mid); drag = { type:'ms', m, x0:e.clientX, mx0:m.x, moved:false }; e.preventDefault(); return; }
   const pi = e.target.closest('.postit');
@@ -516,10 +523,53 @@ document.addEventListener('pointermove', e => {
 });
 document.addEventListener('pointerup', () => {
   if (!drag) return;
-  const moved = drag.moved || drag.type === 'resize';
+  const d = drag;
+  const moved = d.moved || d.type === 'resize';
   drag = null;
+  if (d.type === 'resize') {
+    const p = state.phases[d.i], delta = p.w - d.w0;
+    const mineIds = new Set([].concat(...(d.mine || [])));
+    if (delta) {
+      const oldRight = phaseLeft(d.i) + d.w0;
+      state.postits.forEach(c => { if (!mineIds.has(c.id) && c.x >= oldRight - 1) c.x = Math.max(0, c.x + delta); });
+      state.milestones.forEach(m => { if (m.x >= oldRight - 4) m.x = Math.max(0, m.x + delta); });
+    }
+    arrangePhaseCards(d.i, (d.mine || []).map(ids => ids.map(id => getPostit(id)).filter(Boolean)));
+  }
   if (moved) { save(); render(); }
 });
+
+/* Phase auf Karten-Breite bringen & Post-its nebeneinander anordnen */
+function resizePhaseTo(i, newW, mineIds) {
+  const p = state.phases[i], oldW = p.w;
+  newW = clamp(Math.round(newW), 180, 1800);
+  if (newW === oldW) return;
+  const oldRight = phaseLeft(i) + oldW, delta = newW - oldW;
+  p.w = newW;
+  state.postits.forEach(c => { if (!(mineIds && mineIds.has(c.id)) && c.x >= oldRight - 1) c.x = Math.max(0, c.x + delta); });
+  state.milestones.forEach(m => { if (m.x >= oldRight - 4) m.x = Math.max(0, m.x + delta); });
+}
+function arrangePhaseCards(i, byLane) {
+  const p = state.phases[i]; if (!p) return;
+  const left = phaseLeft(i);
+  const cols = Math.max(1, Math.floor((p.w - 16) / (PI_W + 10)));
+  byLane.forEach((cards, li) => {
+    cards.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y)).forEach((c, j) => {
+      const col = j % cols, row = Math.floor(j / cols);
+      c.x = clamp(left + 10 + col * (PI_W + 10), 0, canvasW(state) - PI_W);
+      c.y = li * LANE_H + 6 + row * 26;
+    });
+  });
+}
+function arrangePhase(i) { arrangePhaseCards(i, LANE_KEYS.map(k => cardsInPhaseLane(i, k))); }
+function fitPhase(i) {
+  const byLane = LANE_KEYS.map(k => cardsInPhaseLane(i, k));
+  const mineIds = new Set([].concat(...byLane.map(a => a.map(c => c.id))));
+  const maxN = Math.max(1, ...byLane.map(a => a.length));
+  resizePhaseTo(i, Math.max(PHASE_W, 24 + maxN * (PI_W + 10)), mineIds);
+  arrangePhaseCards(i, byLane);
+  save(); render();
+}
 
 canvas.addEventListener('click', e => {
   if (previewState) return;
@@ -538,6 +588,8 @@ canvas.addEventListener('click', e => {
     }
     return;
   }
+  const fit = e.target.closest('.phase-fit');
+  if (fit) { fitPhase(+fit.dataset.fi); return; }
   const zoom = e.target.closest('.phase-zoom');
   if (zoom) { openLupe(+zoom.dataset.zi); return; }
   const ph = e.target.closest('.phase-head');
