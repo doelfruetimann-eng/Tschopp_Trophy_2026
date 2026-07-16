@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V22';
+const APP_VERSION = 'V23';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -690,6 +690,7 @@ function openPostitModal(id) {
   const todosHtml = () => ((card.todos || []).map((t, j) =>
     '<div class="tk" style="margin-bottom:5px"><div class="tk-dot ' + (t.done ? 'erledigt' : '') + '" data-tj="' + j + '"></div>'
     + '<div class="tk-text" style="' + (t.done ? 'text-decoration:line-through;color:var(--muted)' : '') + '">' + esc(t.t) + '</div>'
+    + '<input class="td-wer" data-tj="' + j + '" value="' + esc(t.wer || '') + '" placeholder="wer?" title="Zust&auml;ndige Person / Rolle" style="flex:none;width:96px;font:inherit;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:5px">'
     + '<button class="td-del" data-tj="' + j + '">&#10005;</button></div>').join('')
     || '<div style="font-size:12px;color:var(--muted)">&ndash; noch keine Aufgaben &ndash;</div>');
   openModal('<h3>Post-it &middot; Phase ' + (pi + 1) + ' &middot; ' + esc(laneTitle(LANES[LANE_KEYS.indexOf(laneKeyOfY(card.y))] || LANES[0])) + '</h3>'
@@ -704,7 +705,9 @@ function openPostitModal(id) {
     + '<label style="margin-top:12px">KI-Dialog zu diesem Post-it</label>'
     + '<div class="tk-ai-box" style="margin:0"><div class="tk-ai-msgs" id="mMsgs"></div>'
     + '<div class="tk-ai-in"><textarea id="mAsk" rows="2" placeholder="Anweisung an die KI, z.B. «konkreter formulieren» oder «arbeite das aus» …"></textarea><button class="send" id="mSend">Senden</button></div>'
-    + '<div class="row"><button class="take" id="mTake">Letzte Antwort als Ergebnis übernehmen</button></div></div>'
+    + '<div class="row"><button class="take" id="mTake">Letzte Antwort als Ergebnis übernehmen</button>'
+    + '<button id="mMakeDoc" style="background:var(--accent);color:#fff">&#128196; Dokument erzeugen</button>'
+    + '<button id="mPrompt" style="background:#6b7a8d;color:#fff">Prompt kopieren</button></div></div>'
     + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>', true);
   if (card.doc) document.getElementById('mDocDl').onclick = () => downloadCardDoc(id);
   modalBox.querySelectorAll('.swatch').forEach(el => el.onclick = () => { modalBox.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); });
@@ -716,7 +719,11 @@ function openPostitModal(id) {
     const del = e.target.closest('.td-del');
     if (del) { card.todos.splice(+del.dataset.tj, 1); save(); render(); refreshTodos(); }
   });
-  const addTodo = t => { if (!t) return; if (!Array.isArray(card.todos)) card.todos = []; card.todos.push({ t, done: false }); save(); render(); refreshTodos(); };
+  document.getElementById('mTodos').addEventListener('change', e => {
+    const w = e.target.closest('.td-wer');
+    if (w && card.todos && card.todos[+w.dataset.tj]) { card.todos[+w.dataset.tj].wer = w.value.trim(); save(); }
+  });
+  const addTodo = (t, wer) => { if (!t) return; if (!Array.isArray(card.todos)) card.todos = []; card.todos.push({ t, done: false, wer: wer || '' }); save(); render(); refreshTodos(); };
   document.getElementById('mTodoAdd').onclick = () => { const el = document.getElementById('mTodoNew'); addTodo(el.value.trim()); el.value = ''; };
   document.getElementById('mTodoNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('mTodoAdd').click(); } });
   document.getElementById('mTodoAI').onclick = async function () {
@@ -724,11 +731,14 @@ function openPostitModal(id) {
     this.disabled = true; this.textContent = '… denkt …';
     try {
       const out = await callClaude(
-        'Du definierst konkrete Arbeits-Aufgaben zu einem Post-it einer Projekt-Prozesswand. Antworte NUR als JSON: {"aufgaben":["…","…"]} — 3 bis 5 kurze, umsetzbare Aufgaben (je max. 12 Worte), keine Wiederholung bestehender.',
-        'Projektziel: ' + (state.goal || '-') + '\nPhase: ' + (ph.name || '-') + '\nPost-it: "' + cleanTxt(card.text) + '"'
+        'Du definierst konkrete Arbeits-Aufgaben zu einem Post-it einer Projekt-Prozesswand. Antworte NUR als JSON: {"aufgaben":[{"t":"Aufgabe, max. 12 Worte","wer":"Rolle/Person oder leer"}]} — 3 bis 5 umsetzbare Aufgaben, keine Wiederholung bestehender. "wer" aus dem Kontext ableiten (z.B. Projektleitung, IT, Kodierabteilung), sonst leer.',
+        'Projektziel: ' + (state.goal || '-') + '\nPhase: ' + (ph.name || '-') + ' (Verantwortlich: ' + (ph.wer || '-') + ')\nPost-it: "' + cleanTxt(card.text) + '"'
         + ((card.todos || []).length ? '\nBestehende Aufgaben: ' + card.todos.map(t => t.t).join('; ') : ''),
-        CHAT_MODEL, 600);
-      (extractJSON(out).aufgaben || []).slice(0, 5).forEach(t => { if (typeof t === 'string' && t.trim()) addTodo(t.trim()); });
+        CHAT_MODEL, 700);
+      (extractJSON(out).aufgaben || []).slice(0, 5).forEach(t => {
+        if (typeof t === 'string' && t.trim()) addTodo(t.trim());
+        else if (t && typeof t.t === 'string' && t.t.trim()) addTodo(t.t.trim(), (t.wer || '').trim());
+      });
     } catch (e) { sysMsg('❌ Aufgaben-Vorschlag: ' + e.message, true); }
     this.disabled = false; this.innerHTML = '&#129302; vorschlagen';
   };
@@ -759,6 +769,35 @@ function openPostitModal(id) {
     const nc = addCard(pi, 'doku', '📄 ' + first.slice(0, 140).replace(/^[-•#\d.\s]+/, ''), 'offen');
     nc.doc = lastAnswer; save(); render();
     sysMsg('📄 Ausarbeitung auf der Dokumentationsebene gespeichert.', true);
+  };
+  const buildTaskPrompt = () => 'Kontext: Projekt «' + boardName() + '».\nGesamtziel: ' + (state.goal || '-')
+    + '\nPhase ' + (pi + 1) + ': ' + (ph.name || '-') + (ph.ziel ? ' – Phasenziel: ' + ph.ziel : '')
+    + '\nArbeitspaket (Post-it): "' + cleanTxt(card.text) + '"'
+    + ((card.todos || []).length ? '\nTeilaufgaben:\n' + card.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
+    + '\n\nAuftrag: Erstelle das vollständige Dokument, das für dieses Arbeitspaket benötigt wird. Wähle selbst die passende Dokumentart (z.B. Konzept, Antrag, Checkliste, Protokollvorlage oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellenverzeichnis). Deutsch, vollständig ausgearbeiteter Entwurf, offene Punkte als [Platzhalter].';
+  document.getElementById('mPrompt').onclick = async function () {
+    try { await navigator.clipboard.writeText(buildTaskPrompt()); this.textContent = '✓ kopiert'; }
+    catch (e) { dlg.push({ role: 'ai', text: buildTaskPrompt() }); renderDlg(); }
+    setTimeout(() => { this.textContent = 'Prompt kopieren'; }, 2000);
+  };
+  document.getElementById('mMakeDoc').onclick = async function () {
+    if (!getKey()) { openKeyModal(null); return; }
+    this.disabled = true; this.textContent = '… erstellt Dokument …';
+    dlg.push({ role: 'user', text: '[Dokument erzeugen]' }); const think = { role: 'ai', text: '📄 Dokument wird erstellt …' }; dlg.push(think); renderDlg();
+    try {
+      const out = await callClaude(
+        'Du erstellst vollständige, sofort brauchbare Arbeitsdokumente. Wähle die passende Dokumentart selbst (Konzept, Antrag, Checkliste, Protokollvorlage, oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellen). Deutsch, klar strukturiert mit Überschriften, offene Punkte als [Platzhalter]. Kein Vorgeplänkel.',
+        buildTaskPrompt(), CHAT_MODEL, 3500);
+      dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: out }); lastAnswer = out;
+      card.chat = dlg.filter(m => !(m.text || '').startsWith('❌')).slice(-20);
+      const first = out.split('\n').find(l => l.trim()) || 'Dokument';
+      const title = first.replace(/^[-•#\d.\s]+/, '').slice(0, 80);
+      const nc = addCard(pi, 'doku', '📄 ' + title.slice(0, 140), 'offen');
+      nc.doc = out; save(); render(); renderDlg();
+      downloadDoc(title.replace(/[\\/:*?"<>|]/g, '-').slice(0, 60) + '.doc', docShell(title, '<div style="white-space:pre-wrap;font-size:10.5pt;line-height:1.5">' + esc(out) + '</div>'));
+      sysMsg('📄 Dokument erzeugt, heruntergeladen und auf der Dokumentationsebene gespeichert.', true);
+    } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role: 'ai', text: '❌ ' + e.message }); renderDlg(); }
+    this.disabled = false; this.innerHTML = '&#128196; Dokument erzeugen';
   };
   document.getElementById('mSave').onclick = () => {
     card.text = document.getElementById('mText').value;
@@ -1752,6 +1791,7 @@ document.getElementById('dashBtn').onclick = openDash;
 document.getElementById('dashClose').onclick = closeDash;
 document.getElementById('dash').addEventListener('click', e => { if (e.target === document.getElementById('dash')) closeDash(); });
 
+let todoWerFilter = '';
 function renderDash() {
   const body = document.getElementById('dashBody');
   const all = [];
@@ -1774,15 +1814,22 @@ function renderDash() {
   state.postits.forEach(c => (Array.isArray(c.todos) ? c.todos : []).forEach((t, j) => todos.push({ c, t, j })));
   if (todos.length) {
     const tdone = todos.filter(x => x.t.done).length;
-    h += '<div class="dash-sec"><h3>Prozess-Aufgaben <span class="cnt" style="font-weight:400;color:var(--muted);font-size:11px">' + tdone + ' von ' + todos.length + ' erledigt &middot; Punkt anklicken = abhaken</span></h3>'
-      + '<table class="ph-tab"><tr><th style="width:26px"></th><th>Aufgabe</th><th>Post-it</th><th>Phase</th></tr>';
-    todos.forEach(x => {
+    const persons = [...new Set(todos.map(x => (x.t.wer || '').trim()).filter(Boolean))].sort();
+    const filt = todoWerFilter && persons.includes(todoWerFilter) ? todoWerFilter : '';
+    const shown = filt ? todos.filter(x => (x.t.wer || '').trim() === filt) : todos;
+    h += '<div class="dash-sec"><h3>Prozess-Aufgaben <span class="cnt" style="font-weight:400;color:var(--muted);font-size:11px">' + tdone + ' von ' + todos.length + ' erledigt &middot; Punkt anklicken = abhaken</span>'
+      + (persons.length ? '<span class="add" style="border:none;background:none;padding:0"><select id="todoWerFilter" style="font:inherit;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"><option value="">Alle Personen</option>'
+        + persons.map(n => '<option' + (n === filt ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></span>' : '')
+      + '</h3>'
+      + '<table class="ph-tab"><tr><th style="width:26px"></th><th>Aufgabe</th><th>Wer</th><th>Post-it</th><th>Phase</th></tr>';
+    shown.forEach(x => {
       h += '<tr><td><div class="tk-dot ' + (x.t.done ? 'erledigt' : '') + '" data-tcid="' + x.c.id + '" data-tj="' + x.j + '" style="cursor:pointer;width:15px;height:15px;border-radius:50%;border:2px solid ' + (x.t.done ? '#2f8a4c;background:#2f8a4c' : '#cfd5dd') + '"></div></td>'
         + '<td' + (x.t.done ? ' style="text-decoration:line-through;color:var(--muted)"' : '') + '>' + esc(x.t.t) + '</td>'
+        + '<td>' + (x.t.wer ? '<span style="background:#e3ecf7;border-radius:9px;padding:1px 8px;font-size:11px">' + esc(x.t.wer) + '</span>' : '<span style="color:var(--muted)">–</span>') + '</td>'
         + '<td style="color:var(--muted)">' + esc(cleanTxt(x.c.text).slice(0, 44)) + '</td>'
         + '<td>' + (phaseIndexOfX(x.c.x) + 1) + '</td></tr>';
     });
-    h += '</table></div>';
+    h += '</table>' + (filt ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">Gefiltert nach «' + esc(filt) + '» – ' + shown.length + ' Aufgabe(n).</div>' : '') + '</div>';
   }
 
   h += '<div class="dash-sec"><h3>Phasen &middot; Fortschritt &middot; Verantwortliche &middot; Termine <span style="font-weight:400;color:var(--muted);font-size:11px">(Zeile anklicken = Phasen-Lupe)</span></h3>'
@@ -1811,6 +1858,8 @@ function renderDash() {
   h += '</div><div class="kan-hint">Karten stammen von der Handlungsebene der Wand. Status-Änderungen hier erscheinen sofort auch auf der Wand und in der Lupe.</div></div>';
 
   body.innerHTML = h;
+  const f = document.getElementById('todoWerFilter');
+  if (f) f.onchange = () => { todoWerFilter = f.value; renderDash(); };
 }
 document.getElementById('dashBody').addEventListener('click', e => {
   const tdot = e.target.closest('[data-tcid]');
