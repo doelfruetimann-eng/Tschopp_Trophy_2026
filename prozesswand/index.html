@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V23';
+const APP_VERSION = 'V24';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -599,12 +599,15 @@ function arrangePhaseCards(i, byLane) {
   const colsFit = Math.max(1, Math.floor((p.w - 16) / (PI_W + 10)));
   byLane.forEach((cards, li) => {
     const n = cards.length; if (!n) return;
-    // 2 Reihen übereinander nutzen die Ebenenhöhe; Spalten nur so viele wie nötig
-    const useRows = n > 1 ? 2 : 1;
+    const laneTop = li * LANE_H;
+    /* Passt alles nebeneinander → eine Reihe (nichts ragt in Nachbar-Ebenen).
+       Sonst 2 kompakte Reihen, hart auf die Ebenenhöhe begrenzt. */
+    const rows = n <= colsFit ? 1 : 2;
     cards.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y)).forEach((c, j) => {
-      const row = j % useRows, col = Math.floor(j / useRows);
+      const row = j % rows, col = Math.floor(j / rows);
       c.x = clamp(left + 10 + (col % colsFit) * (PI_W + 10), 0, canvasW(state) - PI_W);
-      c.y = li * LANE_H + 4 + row * 50 + Math.floor(col / colsFit) * 12;
+      const y = laneTop + (rows === 1 ? 10 : 2 + row * 46) + Math.floor(col / colsFit) * 10;
+      c.y = Math.min(y, laneTop + LANE_H - 56);
     });
   });
 }
@@ -612,13 +615,14 @@ function arrangePhase(i) { arrangePhaseCards(i, LANE_KEYS.map(k => cardsInPhaseL
 const FIT_MIN = 220;
 function openWidthOf(i) {
   const maxN = Math.max(1, ...LANE_KEYS.map(k => cardsInPhaseLane(i, k).length));
-  return Math.max(PHASE_W, 24 + Math.ceil(maxN / 2) * (PI_W + 10));
+  return Math.max(PHASE_W, 24 + maxN * (PI_W + 10));
 }
 function fitPhase(i) {
   const p = state.phases[i];
   const byLane = LANE_KEYS.map(k => cardsInPhaseLane(i, k));
   const mineIds = new Set([].concat(...byLane.map(a => a.map(c => c.id))));
-  const openW = Math.max(PHASE_W, 24 + Math.ceil(Math.max(1, ...byLane.map(a => a.length)) / 2) * (PI_W + 10));
+  /* Maxi-Ansicht: ALLE Karten einer Ebene nebeneinander in EINER Reihe */
+  const openW = Math.max(PHASE_W, 24 + Math.max(1, ...byLane.map(a => a.length)) * (PI_W + 10));
   if (p.w >= openW - 4) resizePhaseTo(i, FIT_MIN, mineIds);   // ist offen → komprimieren
   else resizePhaseTo(i, openW, mineIds);                       // ist zu → öffnen
   delete p.fitBack;
@@ -712,7 +716,7 @@ function openPostitModal(id) {
   if (card.doc) document.getElementById('mDocDl').onclick = () => downloadCardDoc(id);
   modalBox.querySelectorAll('.swatch').forEach(el => el.onclick = () => { modalBox.querySelectorAll('.swatch').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); });
   /* Aufgaben */
-  const refreshTodos = () => { document.getElementById('mTodos').innerHTML = todosHtml(); };
+  const refreshTodos = () => { const el = document.getElementById('mTodos'); if (el) el.innerHTML = todosHtml(); };
   document.getElementById('mTodos').addEventListener('click', e => {
     const dot = e.target.closest('.tk-dot');
     if (dot) { card.todos[+dot.dataset.tj].done = !card.todos[+dot.dataset.tj].done; save(); render(); refreshTodos(); return; }
@@ -746,7 +750,7 @@ function openPostitModal(id) {
   const dlg = Array.isArray(card.chat) ? card.chat.slice() : [];
   let lastAnswer = ''; for (let i = dlg.length - 1; i >= 0; i--) { if (dlg[i].role === 'ai') { lastAnswer = dlg[i].text; break; } }
   const msgsEl = document.getElementById('mMsgs');
-  const renderDlg = () => { msgsEl.innerHTML = dlg.length ? dlg.map(m => '<div class="am ' + m.role + '">' + esc(m.text) + '</div>').join('') : '<div style="font-size:12px;color:var(--muted)">Stell eine Frage oder gib eine Anweisung – der Verlauf wird gespeichert.</div>'; msgsEl.scrollTop = msgsEl.scrollHeight; };
+  const renderDlg = () => { if (!msgsEl || !document.body.contains(msgsEl)) return; msgsEl.innerHTML = dlg.length ? dlg.map(m => '<div class="am ' + m.role + '">' + esc(m.text) + '</div>').join('') : '<div style="font-size:12px;color:var(--muted)">Stell eine Frage oder gib eine Anweisung – der Verlauf wird gespeichert.</div>'; msgsEl.scrollTop = msgsEl.scrollHeight; };
   renderDlg();
   document.getElementById('mSend').onclick = async () => {
     const v = document.getElementById('mAsk').value.trim(); if (!v) return;
