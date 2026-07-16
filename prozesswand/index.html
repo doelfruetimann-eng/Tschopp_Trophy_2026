@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V24';
+const APP_VERSION = 'V25';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -965,7 +965,7 @@ document.getElementById('keyBtn').onclick = () => openKeyModal(null);
 
 function cleanKey(s) { return (s || '').replace(/[^\x20-\x7E]/g, '').trim(); }
 /* Modell-Wahl: Fable 5 für anspruchsvolle Denk-Rollen, automatischer Rückfall auf Sonnet */
-const CHAT_MODEL = 'claude-fable-5';
+const CHAT_MODEL = 'claude-opus-4-8'; // Alltag: Opus 4.8 · Denk-Rollen (Architekt/Kritiker): Fable 5
 async function callClaude(system, user, model, maxTok) {
   try { return await rawClaude(system, user, model, maxTok); }
   catch (e) {
