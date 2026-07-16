@@ -175,6 +175,42 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #lupeProp .row button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:6px 12px; }
 #lupeProp .take { background:#2f8a4c; color:#fff; } #lupeProp .drop { background:#6b7a8d; color:#fff; }
 
+/* ---- Dashboard ---- */
+#dash { position:fixed; inset:0; z-index:70; display:none; background:rgba(20,28,40,.5); }
+#dash .dash-inner { position:absolute; inset:24px; background:#f4f6f9; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; }
+.dash-top { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--line); background:#fff; }
+.dash-top h2 { margin:0; font-size:16px; }
+.dash-top .sp { margin-left:auto; }
+.dash-top button { font:inherit; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--line); border-radius:6px; background:#fff; padding:6px 12px; }
+.dash-top .dash-close { background:var(--accent); color:#fff; border-color:var(--accent); }
+.dash-body { flex:1; overflow-y:auto; padding:16px 18px; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px; }
+.tile { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.tile .tl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+.tile .tv { font-size:22px; font-weight:700; margin-top:2px; }
+.tile .ts { font-size:11px; color:var(--muted); }
+.dash-sec { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:16px; }
+.dash-sec h3 { margin:0 0 10px; font-size:13px; }
+table.ph-tab { width:100%; border-collapse:collapse; }
+.ph-tab th, .ph-tab td { text-align:left; font-size:12px; padding:7px 8px; border-bottom:1px solid #edf0f4; vertical-align:middle; }
+.ph-tab th { font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.ph-tab tr.dash-row { cursor:pointer; }
+.ph-tab tr.dash-row:hover td { background:#f2f7ff; }
+.pbar { background:#e8ebef; border-radius:5px; height:9px; width:120px; overflow:hidden; }
+.pbar > div { height:100%; background:#2f8a4c; border-radius:5px; }
+.gate-mini { font-size:11px; color:#b3543f; }
+.kan { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.kan-col { background:#eef1f5; border-radius:10px; padding:10px; min-height:80px; }
+.kan-col h4 { margin:0 0 8px; font-size:12px; display:flex; align-items:center; gap:7px; }
+.kan-col h4 .kc { font-size:11px; font-weight:600; color:#fff; border-radius:9px; padding:1px 8px; }
+.kan-col.k-offen h4 .kc { background:#8a94a3; } .kan-col.k-arbeit h4 .kc { background:#3f6fb0; } .kan-col.k-erledigt h4 .kc { background:#2f8a4c; }
+.kan-card { background:#fff; border:1px solid var(--line); border-left:4px solid #8a94a3; border-radius:7px; padding:7px 9px; font-size:12px; line-height:1.35; margin-bottom:7px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.kan-col.k-arbeit .kan-card { border-left-color:#3f6fb0; } .kan-col.k-erledigt .kan-card { border-left-color:#2f8a4c; }
+.kan-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.kan-card .kp { font-size:10px; font-weight:700; color:var(--muted); }
+.kan-hint { font-size:11px; color:var(--muted); margin-top:6px; }
+@media (max-width:900px) { .kan { grid-template-columns:1fr; } }
+
 /* KI-Dialog pro Aufgabe (hell) */
 .tk-ai-msgs { max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
 .tk-ai-msgs .am { padding:7px 10px; border-radius:8px; font-size:12.5px; line-height:1.45; white-space:pre-wrap; max-width:92%; }
@@ -200,6 +236,7 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
   <button id="addPhase">+ Phase</button>
   <button id="addMs">+ Meilenstein</button>
   <button id="connectBtn">Verbinden</button>
+  <button id="dashBtn">Dashboard</button>
   <button id="docsBtn">Dokumente</button>
   <button id="exportBtn">Export</button>
   <button id="importBtn">Import</button>
@@ -245,6 +282,11 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
     <button class="lupe-close" id="lupeClose">Schliessen</button>
   </div>
   <div class="lupe-body" id="lupeBody"></div>
+</div></div>
+
+<div id="dash"><div class="dash-inner">
+  <div class="dash-top"><h2>Projekt-Dashboard</h2><span class="sp"></span><button class="dash-close" id="dashClose">Schliessen</button></div>
+  <div class="dash-body" id="dashBody"></div>
 </div></div>
 
 <div id="authGate">
@@ -354,6 +396,9 @@ function newBoardFrom(name, st, activate) {
 }
 function loadCollection(d) {
   collection = { boards: [], activeId: null };
+  if (d && d.logo) collection.logo = d.logo;
+  if (d && d.apiKey) collection.apiKey = d.apiKey;
+  if (d && Array.isArray(d.templates)) collection.templates = d.templates;
   if (d && Array.isArray(d.boards) && d.boards.length) {
     collection.boards = d.boards.map(b => ({ id: b.id || uid('b'), name: b.name || 'Wand', state: normalizeState(b.state || {}) }));
     collection.activeId = d.activeId || collection.boards[0].id;
@@ -652,6 +697,7 @@ const KEY_STORE = 'pw-anthropic-key';
 function getKey() {
   let k = localStorage.getItem(KEY_STORE);
   if (k) return k;
+  if (collection && collection.apiKey) { localStorage.setItem(KEY_STORE, collection.apiKey); return collection.apiKey; }
 
   for (const alt of ['anthropic-key','anthropic-api-key','claude-api-key','osto-api-key']) {
     k = localStorage.getItem(alt);
@@ -663,7 +709,10 @@ function openKeyModal(then) {
   openModal('<h3>Anthropic API-Schl&uuml;ssel</h3><p style="font-size:12px;color:var(--muted)">Wird nur in diesem Browser gespeichert. Schl&uuml;ssel gibt es unter console.anthropic.com &rarr; API Keys.</p><label>Schl&uuml;ssel</label><input type="password" id="mKey" value="' + esc(getKey()) + '" placeholder="sk-ant-..."><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button></div>');
   document.getElementById('mSave').onclick = () => {
     const v = document.getElementById('mKey').value.trim();
-    if (v) localStorage.setItem(KEY_STORE, v);
+    if (v) {
+      localStorage.setItem(KEY_STORE, v);
+      if (collection) { collection.apiKey = v; save(); } // im Konto speichern – folgt dir auf jedes Gerät
+    }
     closeModal();
     if (v && then) then();
   };
@@ -1038,17 +1087,35 @@ function tasksOfPhase(i) { return cardsInPhaseLane(i, 'handlung'); }
 function cleanTxt(t) { return (t||'').replace(/^[⚠️↻👥📄🎯🧭💡]+\s*/u, ''); }
 
 const DOC_CSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1d2530;margin:2cm}'
-  + 'h1{font-size:16pt;margin:0 0 2pt} .sub{color:#6b7280;font-size:10pt;margin-bottom:14pt}'
+  + 'h1{font-size:18pt;margin:0} .proj{font-size:12pt;color:#3a4654;margin:1pt 0 0} .meta{font-size:9pt;color:#6b7280;text-align:right}'
+  + '.kopfzeile{border:none;margin:0 0 4pt} .kopfzeile td{border:none;padding:0;vertical-align:top}'
+  + '.hr{border-bottom:1.5pt solid #1d2530;margin:6pt 0 4pt}'
+  + '.note{font-size:9pt;color:#6b7280;font-style:italic;margin:2pt 0 12pt}'
   + 'h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:0.5pt solid #c9cdd3;padding-bottom:2pt}'
   + 'table{border-collapse:collapse;width:100%;margin:6pt 0} td,th{border:0.5pt solid #b9bec6;padding:4pt 6pt;font-size:10pt;vertical-align:top;text-align:left}'
-  + 'th{background:#eef1f5;font-weight:bold} .kopf td:first-child{width:32%;background:#f5f7fa;font-weight:bold}'
+  + 'th{background:#eef1f5;font-weight:bold} .kopf td:first-child{width:30%;background:#f5f7fa;font-weight:bold}'
   + '.ph{color:#8a6d1a;background:#fdf6dd} .platz{color:#8a6d1a} .blk{background:#eef1f5;font-weight:bold} .tot{font-weight:bold;background:#f5f7fa}'
-  + '.logo{max-height:46pt;margin-bottom:8pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0}';
+  + '.logo{max-height:52pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0}'
+  + '.foot{font-size:8.5pt;color:#6b7280;margin-top:16pt;border-top:0.5pt solid #c9cdd3;padding-top:4pt}';
 
-function docShell(title, body) {
+function docKopf(title) {
   const logo = collection.logo ? '<img class="logo" src="' + collection.logo + '">' : '';
+  return '<table class="kopfzeile"><tr>'
+    + '<td><h1>' + esc(title) + '</h1><div class="proj">' + esc(boardName()) + '</div></td>'
+    + '<td style="text-align:right;width:35%">' + logo + '<div class="meta">Prozesswand &middot; ' + heute() + '</div></td>'
+    + '</tr></table><div class="hr"></div>'
+    + '<div class="note">Entwurf, automatisch aus der OSTO/SYMA-Prozesswand erzeugt. Als Platzhalter [in Klammern] markierte Inhalte sind fachlich zu vervollständigen.</div>';
+}
+function docFoot() {
+  return '<div class="foot">' + esc(boardName()) + ' &middot; erzeugt am ' + heute() + ' aus der Prozesswand &middot; Entwurf zur Vervollständigung</div>';
+}
+function docShell(title, body) {
   return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + DOC_CSS + '</style></head><body>'
-    + logo + '<h1>' + esc(title) + '</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; erzeugt aus der OSTO/SYMA Prozesswand</div>' + body + '</body></html>';
+    + docKopf(title) + body + docFoot() + '</body></html>';
+}
+function xlsShell(title, body) {
+  return '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
+    + docKopf(title) + body + docFoot() + '</body></html>';
 }
 function downloadDoc(filename, html) {
   const blob = new Blob(['﻿' + html], { type: 'application/msword' });
@@ -1082,6 +1149,10 @@ function genAuftrag(ai) {
   state.phases.forEach((p, i) => {
     b += '<p><b>Phase ' + (i+1) + ' – ' + esc(p.name) + '</b>' + (p.output ? ' &middot; Ergebnis: ' + esc(p.output) : '') + '</p>';
   });
+  b += '<p><b>Übergeordnete Leistungen:</b></p><ul>'
+    + '<li>Projektleitung und Koordination' + (state.phases[0] && state.phases[0].wer ? ' (' + esc(state.phases[0].wer) + ')' : '') + '</li>'
+    + '<li>Abstimmung mit den Anspruchsgruppen an den Entscheid-Toren</li>'
+    + '<li>Dokumentation der Ergebnisse je Phase</li></ul>';
   b += '<h2>5. Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Aufgabe</th><th>Verantwortlich</th><th>Status</th></tr>';
   let n = 0;
   state.phases.forEach((p, i) => {
@@ -1113,6 +1184,11 @@ function genBeschaffung(ai) {
     b += '<tr><td>' + String.fromCharCode(65+i) + '</td><td>' + esc(p.name) + '</td><td class="ph">[Richtwert]</td></tr>';
   });
   b += '<tr class="tot"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="ph">[Total]</td></tr></table>';
+  b += '<h2>5. Termine</h2><table><tr><th>Phase / Meilenstein</th><th>Termin</th></tr>';
+  state.phases.forEach((p, i) => { if (p.wann) b += '<tr><td>Phase ' + (i+1) + ' – ' + esc(p.name) + '</td><td>' + esc(p.wann) + '</td></tr>'; });
+  state.milestones.forEach(m => { b += '<tr><td>&#9670; ' + esc(m.label.split(/\s[–-]\sKriterien/)[0]) + '</td><td class="ph">[Termin]</td></tr>'; });
+  b += '</table>';
+  b += '<h2>6. Beilagen</h2><ul><li>Auftragsbeschrieb</li><li>Grobterminprogramm</li><li>Grobkostenvoranschlag</li></ul>';
   b += '<p class="platz">Kaufmännische Inhalte (Wirtschaftlichkeit, Finanzierung) sind fachlich zu vervollständigen.</p>';
   return docShell('Beschaffungsantrag', b);
 }
@@ -1131,11 +1207,7 @@ function genTermin() {
     rows += '<tr class="blk"><td>&#9670;</td><td colspan="4">Meilensteine / Entscheid-Tore</td></tr>';
     state.milestones.forEach(m => { rows += '<tr><td>&#9670;</td><td colspan="4">' + esc(m.label) + '</td></tr>'; });
   }
-  const logo = collection.logo ? '<img src="' + collection.logo + '" style="max-height:46pt"><br>' : '';
-  const html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
-    + logo + '<h1>Grobterminprogramm</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; aus der Prozesswand</div>'
-    + '<table>' + rows + '</table><p class="platz">Gelb markierte Felder (Start, Dauer) sind zu präzisieren.</p></body></html>';
-  return html;
+  return xlsShell('Grobterminprogramm', '<table>' + rows + '</table><p class="platz">Gelb markierte Felder (Start, Dauer) sind zu präzisieren; verbindliche Termine nach Offerten/Freigabe.</p>');
 }
 
 function genKosten() {
@@ -1151,10 +1223,8 @@ function genKosten() {
   rows += '<tr class="tot"><td colspan="5">TOTAL (exkl. MwSt., Richtwerte)</td><td class="ph"></td><td></td></tr>'
     + '<tr><td colspan="5">MwSt. 8.1%</td><td class="ph"></td><td></td></tr>'
     + '<tr class="tot"><td colspan="5">TOTAL inkl. MwSt.</td><td class="ph"></td><td></td></tr>';
-  const logo = collection.logo ? '<img src="' + collection.logo + '" style="max-height:46pt"><br>' : '';
-  return '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
-    + logo + '<h1>Grobkostenvoranschlag (Richtwerte)</h1><div class="sub">' + esc(boardName()) + ' &middot; ' + heute() + ' &middot; aus der Prozesswand</div>'
-    + '<table>' + rows + '</table><p class="platz">Gelbe Felder (Menge, EP) ausfüllen; Totale rechnen sich in Excel per Formel oder von Hand.</p></body></html>';
+  return xlsShell('Grobkostenvoranschlag (Richtwerte)', '<table>' + rows + '</table>'
+    + '<p class="platz">– Gelb hinterlegte Felder (Menge, EP) sind auszufüllen; Totale in Excel rechnen.<br>– Richtwerte aus der Prozesswand; verbindliche Beträge nach Offerten.</p>');
 }
 
 let docsAiCache = null;
@@ -1183,8 +1253,39 @@ document.getElementById('docsBtn').onclick = () => {
     + '<label style="margin-top:6px"><input type="checkbox" id="dAi" checked> Texte (Ausgangslage, Nutzen, Begründung) von der KI ausformulieren lassen</label>'
     + '<label style="margin-top:12px">Excel-Arbeitsblätter</label>'
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dTermin">Terminprogramm (.xls)</button><button class="go" id="dKosten">Kostenvoranschlag (.xls)</button></div>'
+    + '<label style="margin-top:12px">Eigene CI-Vorlagen (zentral gespeichert)</label>'
+    + '<div id="tplList">' + (collection.templates || []).map((t, j) => {
+        const ext = (t.name.split('.').pop() || '').toLowerCase();
+        const icon = /xls/.test(ext) ? '&#128202;' : /doc/.test(ext) ? '&#128196;' : '&#128206;';
+        return '<div class="brd-row"><span style="flex:1;font-size:12.5px">' + icon + ' ' + esc(t.name) + '</span><button class="tpl-dl" data-j="' + j + '">Herunterladen</button><button class="brd-del tpl-del" data-j="' + j + '">L&ouml;schen</button></div>';
+      }).join('') + '</div>'
+    + '<div style="margin-top:6px"><input type="file" id="tplFiles" multiple accept=".doc,.docx,.xls,.xlsx,.pdf,.pptx"> <span style="font-size:11px;color:var(--muted)">mehrere m&ouml;glich, je max. 2 MB</span></div>'
+    + '<p style="font-size:11px;color:var(--muted);margin:6px 0 0">Damit eine eigene Vorlage automatisch aus der Wand bef&uuml;llt wird, schick sie Claude im Chat &ndash; sie wird dann wie die vier Standard-Dokumente eingebaut.</p>'
     + '<div class="btnrow"><button id="mCancel">Schliessen</button></div>');
   document.getElementById('mCancel').onclick = closeModal;
+  modalBox.querySelectorAll('.tpl-dl').forEach(btn => btn.onclick = () => {
+    const t = collection.templates[+btn.dataset.j]; if (!t) return;
+    const a = document.createElement('a'); a.href = t.data; a.download = t.name; a.click();
+  });
+  modalBox.querySelectorAll('.tpl-del').forEach(btn => btn.onclick = () => {
+    if (!btn.dataset.arm) { btn.dataset.arm = '1'; btn.textContent = 'Wirklich?'; return; }
+    collection.templates.splice(+btn.dataset.j, 1); save(); closeModal(); document.getElementById('docsBtn').click();
+  });
+  document.getElementById('tplFiles').addEventListener('change', e => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (!Array.isArray(collection.templates)) collection.templates = [];
+    let pending = files.length;
+    files.forEach(f => {
+      if (f.size > 2 * 1024 * 1024) { sysMsg('⚠️ «' + f.name + '» übersprungen (größer als 2 MB).', true); if (--pending === 0) { save(); closeModal(); document.getElementById('docsBtn').click(); } return; }
+      const r = new FileReader();
+      r.onload = () => {
+        collection.templates.push({ name: f.name, data: r.result });
+        if (--pending === 0) { save(); closeModal(); document.getElementById('docsBtn').click(); }
+      };
+      r.readAsDataURL(f);
+    });
+  });
   const lf = document.getElementById('logoFile');
   if (lf) lf.addEventListener('change', e => {
     const f = e.target.files[0]; if (!f) return;
@@ -1209,6 +1310,75 @@ document.getElementById('docsBtn').onclick = () => {
   document.getElementById('dTermin').onclick = () => { downloadXls('Terminprogramm - ' + boardName() + '.xls', genTermin()); sysMsg('📄 Terminprogramm erzeugt.', true); };
   document.getElementById('dKosten').onclick = () => { downloadXls('Kostenvoranschlag - ' + boardName() + '.xls', genKosten()); sysMsg('📄 Kostenvoranschlag erzeugt.', true); };
 };
+
+/* ================================================================
+   DASHBOARD – Fortschritt, Verantwortliche, Termine, Kanban
+   ================================================================ */
+function gateOfPhase(i) {
+  const l = phaseLeft(i), r = l + state.phases[i].w;
+  return state.milestones.find(m => m.x > l + state.phases[i].w * 0.4 && m.x <= r + 40);
+}
+function openDash() { if (previewState) return; document.getElementById('dash').style.display = 'block'; renderDash(); }
+function closeDash() { document.getElementById('dash').style.display = 'none'; }
+document.getElementById('dashBtn').onclick = openDash;
+document.getElementById('dashClose').onclick = closeDash;
+document.getElementById('dash').addEventListener('click', e => { if (e.target === document.getElementById('dash')) closeDash(); });
+
+function renderDash() {
+  const body = document.getElementById('dashBody');
+  const all = [];
+  state.phases.forEach((p, i) => tasksOfPhase(i).forEach(c => all.push({ c, i })));
+  const nOffen = all.filter(t => (t.c.status||'offen') === 'offen').length;
+  const nArbeit = all.filter(t => t.c.status === 'arbeit').length;
+  const nDone = all.filter(t => t.c.status === 'erledigt').length;
+  const pct = all.length ? Math.round(nDone / all.length * 100) : 0;
+  let nRisk = 0; state.phases.forEach((p, i) => { nRisk += cardsInPhaseLane(i, 'reflexion').length; });
+
+  let h = '<div class="tiles">'
+    + '<div class="tile"><div class="tl">Projektfortschritt</div><div class="tv">' + pct + '%</div><div class="ts">' + nDone + ' von ' + all.length + ' Aufgaben erledigt</div></div>'
+    + '<div class="tile"><div class="tl">Offen</div><div class="tv">' + nOffen + '</div><div class="ts">Aufgaben</div></div>'
+    + '<div class="tile"><div class="tl">In Arbeit</div><div class="tv">' + nArbeit + '</div><div class="ts">Aufgaben</div></div>'
+    + '<div class="tile"><div class="tl">Risiken / Reflexion</div><div class="tv">' + nRisk + '</div><div class="ts">Karten auf der Reflexionsebene</div></div>'
+    + '<div class="tile"><div class="tl">Gesamtziel</div><div class="ts" style="margin-top:4px">' + esc((state.goal||'– noch nicht definiert –').slice(0,160)) + '</div></div>'
+    + '</div>';
+
+  h += '<div class="dash-sec"><h3>Phasen &middot; Fortschritt &middot; Verantwortliche &middot; Termine <span style="font-weight:400;color:var(--muted);font-size:11px">(Zeile anklicken = Phasen-Lupe)</span></h3>'
+    + '<table class="ph-tab"><tr><th>Nr.</th><th>Phase</th><th>Fortschritt</th><th></th><th>Verantwortlich</th><th>Termin</th><th>Risiken</th><th>Entscheid-Tor</th></tr>';
+  state.phases.forEach((p, i) => {
+    const t = tasksOfPhase(i), d = t.filter(c => c.status === 'erledigt').length;
+    const ppct = t.length ? Math.round(d / t.length * 100) : 0;
+    const g = gateOfPhase(i);
+    h += '<tr class="dash-row" data-pi="' + i + '"><td>' + (i+1) + '</td><td><b>' + esc(p.name) + '</b></td>'
+      + '<td><div class="pbar"><div style="width:' + ppct + '%"></div></div></td><td style="white-space:nowrap">' + d + '/' + t.length + '</td>'
+      + '<td>' + esc(p.wer || '–') + '</td><td>' + esc(p.wann || '–') + '</td>'
+      + '<td>' + cardsInPhaseLane(i, 'reflexion').length + '</td>'
+      + '<td class="gate-mini">' + (g ? '&#9670; ' + esc(g.label.split(/\s[–-]\sKriterien/)[0].slice(0, 48)) : '–') + '</td></tr>';
+  });
+  h += '</table></div>';
+
+  h += '<div class="dash-sec"><h3>Aufgaben-Kanban <span style="font-weight:400;color:var(--muted);font-size:11px">(Karte anklicken = Status weiterschalten)</span></h3><div class="kan">';
+  [['offen','Offen','k-offen'], ['arbeit','In Arbeit','k-arbeit'], ['erledigt','Erledigt','k-erledigt']].forEach(([st, lbl, cls]) => {
+    const items = all.filter(t => (t.c.status||'offen') === st);
+    h += '<div class="kan-col ' + cls + '"><h4>' + lbl + ' <span class="kc">' + items.length + '</span></h4>';
+    items.forEach(t => {
+      h += '<div class="kan-card" data-cid="' + t.c.id + '"><span class="kp">P' + (t.i+1) + ' · ' + esc(state.phases[t.i].name.slice(0,24)) + '</span><br>' + esc(cleanTxt(t.c.text).slice(0, 110)) + '</div>';
+    });
+    h += '</div>';
+  });
+  h += '</div><div class="kan-hint">Karten stammen von der Handlungsebene der Wand. Status-Änderungen hier erscheinen sofort auch auf der Wand und in der Lupe.</div></div>';
+
+  body.innerHTML = h;
+}
+document.getElementById('dashBody').addEventListener('click', e => {
+  const card = e.target.closest('.kan-card');
+  if (card) {
+    const c = getPostit(card.dataset.cid);
+    if (c) { c.status = STATUS_NEXT[c.status || 'offen']; save(); renderDash(); render(); }
+    return;
+  }
+  const row = e.target.closest('.dash-row');
+  if (row) { closeDash(); openLupe(+row.dataset.pi); }
+});
 
 /* ================================================================
    PHASEN-LUPE  – in eine Phase hineinzoomen & im Detail bearbeiten
