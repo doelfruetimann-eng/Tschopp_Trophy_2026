@@ -76,8 +76,10 @@ aside { width:332px; background:#fff; border-left:1px solid var(--line); display
 #goalbar { display:flex; align-items:center; gap:10px; padding:8px 14px; background:#fff; border-top:1px solid var(--line); box-shadow:0 -1px 4px rgba(0,0,0,.06); }
 #goalbar label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); white-space:nowrap; }
 #goalInput { flex:1; font:inherit; font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; resize:none; min-height:34px; line-height:1.35; }
-#smartBtn { font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:8px 14px; }
-#smartBtn:hover { background:#355f97; }
+#smartBtn, #swarmBtn { font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; border:0; border-radius:6px; background:var(--accent); color:#fff; padding:8px 14px; }
+#smartBtn:hover, #swarmBtn:hover { background:#355f97; }
+#swarmBtn { background:#2f8a4c; }
+#swarmBtn:hover { background:#27703f; }
 
 #overlay { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(20,28,40,.45); }
 .modal { background:#fff; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.25); width:430px; max-width:94vw; max-height:88vh; overflow-y:auto; padding:18px 20px; }
@@ -233,14 +235,14 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <header>
   <h1>OSTO/SYMA Prozesswand</h1>
   <button id="dashBtn" class="primary">Dashboard</button>
+  <button id="guideBtn" title="Den Prozess Schritt f&uuml;r Schritt durchgehen">&#9654; Schritt f&uuml;r Schritt</button>
   <select id="boardSelect" title="Prozesswand wählen"></select>
   <button id="boardMenu" title="Wände verwalten">W&auml;nde&hellip;</button>
-  <span class="sub">Phase = System-Ei &middot; Doppelklick = Post-it &middot; Rad = links/rechts</span>
+  <span class="sub">Phase = System-Ei &middot; Doppelklick = Post-it &middot; Rad = links/rechts &middot; <b id="verTag"></b></span>
   <span class="userTag" id="userTag"></span>
   <button id="logoutBtn" style="display:none">Abmelden</button>
   <span class="savedTag" id="savedTag"></span>
-  <button id="swarmBtn" class="primary">&#129302; KI-Struktur</button>
-  <button id="undoBtn" style="display:none">R&uuml;ckg&auml;ngig</button>
+  <button id="undoBtn" style="display:none" title="Letzte &Auml;nderung r&uuml;ckg&auml;ngig machen">&#8617; Retour</button>
   <button id="addPhase">+ Phase</button>
   <button id="addMs">+ Meilenstein</button>
   <button id="connectBtn">Verbinden</button>
@@ -251,6 +253,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
   <div id="wallScroll"><div id="wallCanvas"></div></div>
   <aside>
     <div class="ki-tools">
+      <button id="checkBtn" title="Neue/ge&auml;nderte Post-its durch die KI pr&uuml;fen und best&auml;tigen lassen">&#10003; KI-Check</button>
       <button id="docsBtn">Dokumente</button>
       <button id="exportBtn">Export</button>
       <button id="importBtn">Import</button>
@@ -270,6 +273,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
   <label>Gesamtziel</label>
   <textarea id="goalInput" rows="1" placeholder="Was soll am Ende des Projekts erreicht sein? (SMART)"></textarea>
   <button id="smartBtn">SMART-Check</button>
+  <button id="swarmBtn">&#129302; KI-Struktur</button>
 </div>
 
 <div id="previewBar">
@@ -313,6 +317,8 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
+
+const APP_VERSION = 'V20';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -424,12 +430,23 @@ function renderBoardSelect() {
   sel.innerHTML = collection.boards.map(b => '<option value="' + b.id + '"' + (b.id === collection.activeId ? ' selected' : '') + '>' + esc(b.name) + '</option>').join('');
 }
 
+let undoStack = [], undoSkip = false, lastSaved = null, lastSavedBoard = null;
 function save() {
   syncActive();
+  const cur = JSON.stringify(state), bid = collection.activeId;
+  if (!undoSkip && lastSaved !== null && lastSavedBoard === bid && lastSaved !== cur) {
+    undoStack.push({ bid, snap: lastSaved });
+    if (undoStack.length > 30) undoStack.shift();
+  }
+  lastSaved = cur; lastSavedBoard = bid;
   localStorage.setItem(STORE, JSON.stringify(collection));
   const t = document.getElementById('savedTag');
   t.textContent = 'gespeichert'; setTimeout(() => { t.textContent = ''; }, 1300);
   scheduleCloudSave();
+  updateUndoBtn();
+}
+function updateUndoBtn() {
+  document.getElementById('undoBtn').style.display = undoStack.some(u => u.bid === collection.activeId) ? '' : 'none';
 }
 
 /* ---------- Geometrie ---------- */
@@ -455,7 +472,7 @@ function render() {
 
   s.phases.forEach((p, i) => {
     const left = LABEL_W + phaseLeft(i, s);
-    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-fit" data-fi="' + i + '" title="' + (p.fitBack ? 'Phase wieder zusammenschieben' : 'Phase vergrössern &amp; Post-its nebeneinander anordnen') + '">&#8646;</button><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
+    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-fit" data-fi="' + i + '" title="' + (p.w >= openWidthOf(i) - 4 ? 'Phase zusammenschieben (komprimiert)' : 'Phase öffnen – alle Post-its nebeneinander') + '">&#8646;</button><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
     if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
   });
 
@@ -585,20 +602,19 @@ function arrangePhaseCards(i, byLane) {
   });
 }
 function arrangePhase(i) { arrangePhaseCards(i, LANE_KEYS.map(k => cardsInPhaseLane(i, k))); }
+const FIT_MIN = 220;
+function openWidthOf(i) {
+  const maxN = Math.max(1, ...LANE_KEYS.map(k => cardsInPhaseLane(i, k).length));
+  return Math.max(PHASE_W, 24 + Math.ceil(maxN / 2) * (PI_W + 10));
+}
 function fitPhase(i) {
   const p = state.phases[i];
   const byLane = LANE_KEYS.map(k => cardsInPhaseLane(i, k));
   const mineIds = new Set([].concat(...byLane.map(a => a.map(c => c.id))));
-  if (p.fitBack) {
-    // wieder zusammenschieben auf die Breite von vorher
-    resizePhaseTo(i, p.fitBack, mineIds);
-    delete p.fitBack;
-  } else {
-    const maxN = Math.max(1, ...byLane.map(a => a.length));
-    const target = Math.max(PHASE_W, 24 + Math.ceil(maxN / 2) * (PI_W + 10));
-    if (target > p.w) p.fitBack = p.w;
-    resizePhaseTo(i, target, mineIds);
-  }
+  const openW = Math.max(PHASE_W, 24 + Math.ceil(Math.max(1, ...byLane.map(a => a.length)) / 2) * (PI_W + 10));
+  if (p.w >= openW - 4) resizePhaseTo(i, FIT_MIN, mineIds);   // ist offen → komprimieren
+  else resizePhaseTo(i, openW, mineIds);                       // ist zu → öffnen
+  delete p.fitBack;
   arrangePhaseCards(i, byLane);
   save(); render();
 }
@@ -774,10 +790,17 @@ document.getElementById('importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 document.getElementById('undoBtn').onclick = () => {
-  if (!undoBackup) return;
-  state = normalizeState(JSON.parse(undoBackup)); undoBackup = null;
-  document.getElementById('undoBtn').style.display = 'none';
-  goalInput.value = state.goal || ''; save(); render(); sysMsg('Vorheriger Stand wiederhergestellt.');
+  if (previewState) return;
+  for (let i = undoStack.length - 1; i >= 0; i--) {
+    if (undoStack[i].bid === collection.activeId) {
+      const u = undoStack.splice(i, 1)[0];
+      state = normalizeState(JSON.parse(u.snap));
+      undoSkip = true; refreshFromState(); save(); undoSkip = false;
+      sysMsg('↩ Letzte Änderung rückgängig gemacht.', true);
+      updateUndoBtn();
+      return;
+    }
+  }
 };
 
 /* ---------- KI: Schlüssel & API ---------- */
@@ -815,7 +838,16 @@ function openKeyModal(then) {
 document.getElementById('keyBtn').onclick = () => openKeyModal(null);
 
 function cleanKey(s) { return (s || '').replace(/[^\x20-\x7E]/g, '').trim(); }
+/* Modell-Wahl: Fable 5 für anspruchsvolle Denk-Rollen, automatischer Rückfall auf Sonnet */
+const CHAT_MODEL = 'claude-fable-5';
 async function callClaude(system, user, model, maxTok) {
+  try { return await rawClaude(system, user, model, maxTok); }
+  catch (e) {
+    if (/model/i.test(e.message) && model !== MODEL_FALLBACK) return rawClaude(system, user, MODEL_FALLBACK, maxTok);
+    throw e;
+  }
+}
+async function rawClaude(system, user, model, maxTok) {
   const key = cleanKey(getKey());
   if (!key) throw new Error('Kein API-Schlüssel hinterlegt.');
   if (!/^sk-ant-/.test(key)) throw new Error('Der gespeicherte API-Schlüssel sieht unvollständig aus – bitte über «API-Schlüssel» komplett neu einfügen (beginnt mit sk-ant-…).');
@@ -881,7 +913,7 @@ async function runChat(prompt, label) {
     const key = getKey();
     if (!key) { wait.remove(); openKeyModal(() => runChat(prompt, label)); return; }
     const hist = convo.map(m => (m.role === 'user' ? 'Nutzer: ' : 'Moderator: ') + m.content).join('\n\n');
-    const out = await callClaude(MODERATOR_SYS + wallContext(), hist, 'claude-sonnet-5', 1500);
+    const out = await callClaude(MODERATOR_SYS + wallContext(), hist, CHAT_MODEL, 1500);
     convo.push({ role: 'assistant', content: out });
     state.kiConvo = convo.slice(-24);
     wait.remove(); addMsg('ai', out);
@@ -927,7 +959,7 @@ const METHODIK = 'PHASENMODELL (Basis: Systems Engineering / Wiegand «Handbuch 
 + '- Managementebene 1 = Bereichsleitung/strategisch; Managementebene 2 = Projektleitung/operativ; Inputebene = Experten & Beeinflusser.\n'
 + '- Sprache: Deutsch, kurz und konkret (Post-it-Stil, max. 12 Wörter pro Karte).';
 
-const MODELS = { architekt: 'claude-sonnet-5', planer: 'claude-haiku-4-5-20251001', kritiker: 'claude-sonnet-5', verbinder: 'claude-haiku-4-5-20251001' };
+const MODELS = { architekt: 'claude-fable-5', planer: 'claude-haiku-4-5-20251001', kritiker: 'claude-fable-5', verbinder: 'claude-haiku-4-5-20251001' };
 const MODEL_FALLBACK = 'claude-sonnet-5';
 
 async function agentCall(role, system, user, maxTok) {
@@ -1076,7 +1108,7 @@ function buildPreview(cfg, phasen, plaene, kritik) {
     const x = clamp(left + 10 + ((k-1) * 28) % Math.max(40, w - PI_W - 20), 0, canvasW(st) - PI_W);
     const y = li * LANE_H + 6 + ((k-1) * 22) % (LANE_H - 62);
     const id = uid('p');
-    st.postits.push({ id, x, y, text, color: LANE_COLOR[laneKey] || PALETTE[0] });
+    st.postits.push({ id, x, y, text, color: LANE_COLOR[laneKey] || PALETTE[0], checked: true });
     kn++; cards.push({ key: 'K' + kn, id, lane: laneKey, phase: phaseIdx, text });
     if (toChain) chain.push(id);
     return id;
@@ -1189,19 +1221,33 @@ function heute() { const d = new Date(); return ('0'+d.getDate()).slice(-2) + '.
 function tasksOfPhase(i) { return cardsInPhaseLane(i, 'handlung'); }
 function cleanTxt(t) { return (t||'').replace(/^[⚠️↻👥📄🎯🧭💡]+\s*/u, ''); }
 
-const DOC_CSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1d2530;margin:2cm}'
-  + 'h1{font-size:18pt;margin:0} .proj{font-size:12pt;color:#3a4654;margin:1pt 0 0} .meta{font-size:9pt;color:#6b7280;text-align:right}'
-  + '.kopfzeile{border:none;margin:0 0 4pt} .kopfzeile td{border:none;padding:0;vertical-align:top}'
-  + '.hr{border-bottom:1.5pt solid #1d2530;margin:6pt 0 4pt}'
-  + '.note{font-size:9pt;color:#6b7280;font-style:italic;margin:2pt 0 12pt}'
-  + 'h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:0.5pt solid #c9cdd3;padding-bottom:2pt}'
-  + 'table{border-collapse:collapse;width:100%;margin:6pt 0} td,th{border:0.5pt solid #b9bec6;padding:4pt 6pt;font-size:10pt;vertical-align:top;text-align:left}'
-  + 'th{background:#eef1f5;font-weight:bold} .kopf td:first-child{width:30%;background:#f5f7fa;font-weight:bold}'
-  + '.ph{color:#8a6d1a;background:#fdf6dd} .platz{color:#8a6d1a} .blk{background:#eef1f5;font-weight:bold} .tot{font-weight:bold;background:#f5f7fa}'
-  + '.logo{max-height:52pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0}'
-  + '.g{width:14pt;border:0.5pt solid #dfe3e8} .gh{width:14pt;font-size:7.5pt;text-align:center;color:#6b7280;border:0.5pt solid #dfe3e8}'
-  + '.gp{width:14pt;background:#b9cfe9;border:0.5pt solid #dfe3e8} .gt{width:14pt;background:#3f6fb0;border:0.5pt solid #dfe3e8}'
-  + '.foot{font-size:8.5pt;color:#6b7280;margin-top:16pt;border-top:0.5pt solid #c9cdd3;padding-top:4pt}';
+/* CI-Palette exakt aus den Original-Vorlagen: Bordeaux 651B32, Rosé F3EBEE/FAF6F7,
+   Gelb FFF6D5 (Eingabe), Text 333333/666666, Rahmen C9CCC4, Calibri 9.5/9/15/18pt */
+const DOC_CSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:9.5pt;color:#333333;margin:1.8cm 2cm}'
+  + 'h1{font-size:18pt;color:#651B32;margin:0} .proj{font-size:11pt;font-weight:bold;color:#333333;margin:1pt 0 0} .meta{font-size:9pt;color:#666666;text-align:right}'
+  + '.kopfzeile{border:none;margin:0 0 4pt;width:100%} .kopfzeile td{border:none;padding:0;vertical-align:top}'
+  + '.hr{border-bottom:1.5pt solid #651B32;margin:6pt 0 4pt}'
+  + '.note{font-size:8.5pt;color:#666666;font-style:italic;margin:2pt 0 12pt}'
+  + 'h2{font-size:13pt;color:#651B32;margin:14pt 0 4pt;border-bottom:.5pt solid #C9CCC4;padding-bottom:2pt}'
+  + 'p{font-size:9.5pt}'
+  + 'table{border-collapse:collapse;width:100%;margin:6pt 0} td,th{border:.5pt solid #C9CCC4;padding:4pt 6pt;font-size:9.5pt;color:#333333;vertical-align:top;text-align:left}'
+  + 'th{background:#651B32;color:#FFFFFF;font-weight:bold;font-size:9pt;vertical-align:middle}'
+  + '.kopf td:first-child{width:30%;background:#FAF6F7;font-weight:bold}'
+  + '.c{text-align:center} .r{text-align:right}'
+  + '.ph{background:#FFF6D5;color:#333333} .platz{color:#666666;font-style:italic}'
+  + '.blk td{background:#F3EBEE;border:none;font-weight:bold;font-size:9.5pt} .blk td:first-child{color:#651B32;font-size:10pt}'
+  + '.tot td{background:#F3EBEE;font-weight:bold;border:none}'
+  + '.ttl td{background:#651B32;color:#FFFFFF;font-weight:bold;font-size:9pt;border:none}'
+  + '.nb{border:none;background:none}'
+  + '.tt{font-size:15pt;font-weight:bold;color:#651B32;border:none;background:none;vertical-align:bottom}'
+  + '.st{font-size:9.5pt;font-weight:bold;color:#333333;border:none;background:none}'
+  + '.mt{font-size:9pt;color:#666666;border:none;background:none}'
+  + '.logo{max-height:44pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0;font-size:9.5pt}'
+  + '.g{width:21pt;border:.5pt solid #C9CCC4} .gh{width:21pt;font-size:8pt;font-weight:bold;text-align:center;color:#666666;border:none;background:none}'
+  + '.gp{background:#F3EBEE;border:none} .gt{background:#651B32;border:.5pt solid #C9CCC4}'
+  + '.chf{mso-number-format:"#\'##0"}'
+  + '.fuss{font-size:8.5pt;font-style:italic;color:#666666;border:none;background:none}'
+  + '.foot{font-size:8.5pt;color:#666666;margin-top:16pt;border-top:.5pt solid #C9CCC4;padding-top:4pt}';
 
 function docKopf(title) {
   const logo = collection.logo ? '<img class="logo" src="' + collection.logo + '">' : '';
@@ -1218,9 +1264,18 @@ function docShell(title, body) {
   return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + DOC_CSS + '</style></head><body>'
     + docKopf(title) + body + docFoot() + '</body></html>';
 }
-function xlsShell(title, body) {
-  return '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><style>' + DOC_CSS + '</style></head><body>'
-    + docKopf(title) + body + docFoot() + '</body></html>';
+function xlsShell(sheetName, bodyTable, opts) {
+  opts = opts || {};
+  const freeze = opts.freezeRow
+    ? '<x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>' + opts.freezeRow + '</x:SplitHorizontal><x:TopRowBottomPane>' + opts.freezeRow + '</x:TopRowBottomPane>'
+      + (opts.freezeCol ? '<x:SplitVertical>' + opts.freezeCol + '</x:SplitVertical><x:LeftColumnRightPane>' + opts.freezeCol + '</x:LeftColumnRightPane>' : '')
+      + '<x:ActivePane>0</x:ActivePane>'
+    : '';
+  const xml = '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>' + sheetName + '</x:Name>'
+    + '<x:WorksheetOptions><x:DoNotDisplayGridlines/><x:FitToPage/><x:Print><x:FitWidth>1</x:FitWidth><x:FitHeight>32767</x:FitHeight></x:Print>' + freeze + '</x:WorksheetOptions>'
+    + '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->';
+  const page = '@page{margin:1in .75in 1in .75in;mso-header-margin:.5in;mso-footer-margin:.5in' + (opts.landscape ? ';mso-page-orientation:landscape' : '') + '}';
+  return '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">' + xml + '<style>' + DOC_CSS + ' body{margin:0}' + page + '</style></head><body>' + bodyTable + '</body></html>';
 }
 function downloadDoc(filename, html) {
   const blob = new Blob(['﻿' + html], { type: 'application/msword' });
@@ -1300,7 +1355,7 @@ function genBeschaffung(ai) {
   state.phases.forEach((p, i) => {
     b += '<tr><td>' + String.fromCharCode(65+i) + '</td><td>' + esc(p.name) + '</td><td class="ph">[Richtwert]</td></tr>';
   });
-  b += '<tr class="tot"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="ph">[Total]</td></tr></table>';
+  b += '<tr class="ttl"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="r">[Total]</td></tr></table>';
   b += '<h2>5. Termine</h2><table><tr><th>Phase / Meilenstein</th><th>Termin</th></tr>';
   state.phases.forEach((p, i) => { if (p.wann) b += '<tr><td>Phase ' + (i+1) + ' – ' + esc(p.name) + '</td><td>' + esc(p.wann) + '</td></tr>'; });
   state.milestones.forEach(m => { b += '<tr><td>&#9670; ' + esc(m.label.split(/\s[–-]\sKriterien/)[0]) + '</td><td class="ph">[Termin]</td></tr>'; });
@@ -1313,47 +1368,83 @@ function genBeschaffung(ai) {
 function genTermin() {
   const WKS = 16, totalPx = Math.max(1, canvasW(state));
   const wk = x => clamp(Math.floor(x / totalPx * WKS), 0, WKS - 1);
-  const gantt = (a, b2, cls) => { let g = ''; for (let w = 0; w < WKS; w++) g += '<td class="' + (w >= a && w <= b2 ? cls : 'g') + '"></td>'; return g; };
-  const dia = pos => { let g = ''; for (let w = 0; w < WKS; w++) g += (w === pos ? '<td class="g" style="text-align:center;color:#b3543f;font-weight:bold">&#9670;</td>' : '<td class="g"></td>'); return g; };
-  let rows = '<tr><th>Nr.</th><th>Aufgabe</th><th>Verantwortlich</th><th>Start</th><th>Dauer</th><th colspan="' + WKS + '">Wochen ab Projektstart &rarr; (W1&ndash;W' + WKS + ')</th></tr>';
-  rows += '<tr><td></td><td></td><td></td><td></td><td></td>';
+  const gantt = (a, b2) => { let g = ''; for (let w = 0; w < WKS; w++) g += '<td class="' + (w >= a && w <= b2 ? 'gt' : 'g') + '"></td>'; return g; };
+  const dia = pos => { let g = ''; for (let w = 0; w < WKS; w++) g += (w === pos ? '<td class="g c" style="color:#651B32;font-weight:bold">&#9670;</td>' : '<td class="g"></td>'); return g; };
+  const nbWks = '<td class="nb" colspan="' + WKS + '"></td>';
+  const logo = collection.logo ? '<img src="' + collection.logo + '" class="logo">' : '';
+  let rows = '';
+  /* Kopfbereich wie Vorlage: Leerzeile, Titel, Projekt+Meta, Leerzeile */
+  rows += '<tr><td class="nb" colspan="' + (6 + WKS) + '">&nbsp;</td></tr>';
+  rows += '<tr><td class="nb"></td><td class="nb"></td><td class="tt" colspan="2">Grobterminprogramm</td><td class="nb"></td><td class="nb"></td><td class="nb r" colspan="' + WKS + '">' + logo + '</td></tr>';
+  rows += '<tr><td class="nb"></td><td class="nb"></td><td class="st">' + esc(boardName()) + '</td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="mt" colspan="' + WKS + '">Prozesswand &middot; ' + heute() + '</td></tr>';
+  rows += '<tr><td class="nb" colspan="' + (6 + WKS) + '">&nbsp;</td></tr>';
+  /* KW-Zeile über dem Kopf (wie Vorlage: W → und Nummern, 8pt fett grau) */
+  rows += '<tr><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb" style="font-size:8pt;font-weight:bold;color:#666666;white-space:nowrap">W &rarr;</td>';
   for (let w = 1; w <= WKS; w++) rows += '<td class="gh">' + w + '</td>';
+  rows += '</tr>';
+  /* Bordeaux-Kopfzeile: Textspalten mit Rahmen, Wochenzellen nur Fill */
+  rows += '<tr><th style="width:24pt">Nr.</th><th style="width:24pt"></th><th style="width:266pt">Aufgabe</th><th style="width:140pt">Verantwortlich</th><th class="c" style="width:35pt">Start</th><th class="c" style="width:35pt">Dauer</th>';
+  for (let w = 0; w < WKS; w++) rows += '<td style="background:#651B32;border:none;width:21pt"></td>';
   rows += '</tr>';
   let n = 0;
   state.phases.forEach((p, i) => {
-    const pa = wk(phaseLeft(i)), pb = wk(phaseLeft(i) + state.phases[i].w - 1);
-    rows += '<tr class="blk"><td>P' + (i+1) + '</td><td colspan="4">Phase ' + (i+1) + ' – ' + esc(p.name) + (p.wann ? ' (' + esc(p.wann) + ')' : '') + '</td>' + gantt(pa, pb, 'gp') + '</tr>';
+    rows += '<tr class="blk"><td>P' + (i+1) + '</td><td></td><td>Phase ' + (i+1) + ' &ndash; ' + esc(p.name) + (p.wann ? ' (' + esc(p.wann) + ')' : '') + '</td><td></td><td></td><td></td>';
+    for (let w = 0; w < WKS; w++) rows += '<td class="gp"></td>';
+    rows += '</tr>';
+    const pb = wk(phaseLeft(i) + state.phases[i].w - 1);
     tasksOfPhase(i).forEach(c => {
       n++;
       const ta = wk(c.x);
-      rows += '<tr><td>' + n + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="ph">W' + (ta+1) + '</td><td class="ph">1 W</td>' + gantt(ta, Math.min(ta + 1, pb), 'gt') + '</tr>';
+      rows += '<tr><td class="c">' + n + '</td><td></td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="c">W' + (ta+1) + '</td><td class="c">1 W</td>' + gantt(ta, Math.min(ta + 1, pb)) + '</tr>';
     });
   });
   state.milestones.forEach(m => {
     const short = m.label.split(/\s[–-]\sKriterien/)[0];
-    rows += '<tr><td>&#9670;</td><td colspan="4">' + esc(short) + '</td>' + dia(wk(m.x)) + '</tr>';
+    rows += '<tr><td class="c" style="color:#651B32;font-weight:bold">&#9670;</td><td></td><td colspan="4">' + esc(short) + '</td>' + dia(wk(m.x)) + '</tr>';
   });
-  return xlsShell('Grobterminprogramm',
-    '<table>' + rows + '</table>'
-    + '<p class="platz">– Wochenachse ist relativ (W1 = Projektstart), abgeleitet aus der Zeitachse der Prozesswand; Kalenderwochen eintragen.<br>'
-    + '– Gelbe Felder (Start, Dauer) präzisieren; verbindliche Termine nach Offerten/Freigabe.</p>');
+  /* Fussnoten wie Vorlage: 8.5pt kursiv grau, Gedankenstrich */
+  rows += '<tr><td class="nb" colspan="' + (6 + WKS) + '">&nbsp;</td></tr>';
+  rows += '<tr><td class="nb"></td><td class="nb"></td><td class="fuss" colspan="' + (4 + WKS) + '">&ndash;&nbsp;&nbsp;Wochenachse relativ (W1 = Projektstart), abgeleitet aus der Zeitachse der Prozesswand; Kalenderwochen eintragen.</td></tr>';
+  rows += '<tr><td class="nb"></td><td class="nb"></td><td class="fuss" colspan="' + (4 + WKS) + '">&ndash;&nbsp;&nbsp;Automatisch erzeugt aus der Prozesswand am ' + heute() + ' &ndash; verbindliche Termine nach Offerten/Freigabe.</td></tr>';
+  return xlsShell('Terminprogramm', '<table>' + rows + '</table>', { landscape: true, freezeRow: 6, freezeCol: 6 });
 }
 
 function genKosten() {
-  let rows = '<tr><th>Pos.</th><th>Beschreibung</th><th>Menge</th><th>Einheit</th><th>EP CHF</th><th>Total CHF</th><th>Verantwortlich</th></tr>';
+  const logo = collection.logo ? '<img src="' + collection.logo + '" class="logo">' : '';
+  let r = 0, rows = '';
+  const tr = (cls, html) => { r++; rows += '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' + html + '</tr>'; };
+  const nb = n => '<td class="nb"></td>'.repeat(n);
+  /* Kopf wie Vorlage: Leerzeile, Titel, Projekt + Meta rechts, Leerzeile */
+  tr('', '<td class="nb" colspan="8">&nbsp;</td>');
+  tr('', nb(2) + '<td class="tt" colspan="4">Grobkostenvoranschlag (Richtwerte)</td><td class="nb r" colspan="2">' + logo + '</td>');
+  tr('', '<td class="st" colspan="5">' + esc(boardName()) + '</td>' + nb(1) + '<td class="mt r" colspan="2">Prozesswand &middot; ' + heute() + '</td>');
+  tr('', '<td class="nb" colspan="8">&nbsp;</td>');
+  tr('', '<th style="width:46pt">Pos.</th><th style="width:30pt"></th><th style="width:277pt">Beschreibung</th><th class="c" style="width:46pt">Menge</th><th class="c" style="width:56pt">Einheit</th><th class="r" style="width:67pt">EP CHF</th><th class="r" style="width:77pt">Total CHF</th><th style="width:119pt">Verantwortlich</th>');
+  const totCells = [];
   state.phases.forEach((p, i) => {
     const blk = String.fromCharCode(65 + i);
-    rows += '<tr class="blk"><td>' + blk + '</td><td colspan="6">' + esc(p.name) + '</td></tr>';
+    tr('blk', '<td>' + blk + '</td><td></td><td>' + esc(p.name) + '</td><td></td><td></td><td></td><td></td><td></td>');
+    const first = r + 1;
     tasksOfPhase(i).forEach((c, j) => {
-      rows += '<tr><td>' + blk + '.' + ('0'+(j+1)).slice(-2) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td class="ph">1</td><td class="ph">pauschal</td><td class="ph"></td><td></td><td>' + esc(p.wer || '') + '</td></tr>';
+      const rr = r + 1;
+      tr('', '<td>' + blk + '.' + ('0' + (j + 1)).slice(-2) + '</td><td></td><td>' + esc(cleanTxt(c.text)) + '</td><td class="ph c"></td><td class="c">pauschal</td><td class="ph r chf"></td><td class="r chf" x:fml="=D' + rr + '*F' + rr + '"></td><td>' + esc(p.wer || '') + '</td>');
     });
-    rows += '<tr class="tot"><td colspan="5">Zwischentotal Block ' + blk + '</td><td class="ph"></td><td></td></tr>';
+    const last = r;
+    tr('tot', '<td></td><td></td><td>Zwischentotal ' + esc(p.name) + '</td><td></td><td></td><td></td><td class="r chf"' + (last >= first ? ' x:fml="=SUM(G' + first + ':G' + last + ')"' : '') + '></td><td></td>');
+    totCells.push(r);
+    tr('', '<td class="nb" colspan="8">&nbsp;</td>');
   });
-  rows += '<tr class="tot"><td colspan="5">TOTAL (exkl. MwSt., Richtwerte)</td><td class="ph"></td><td></td></tr>'
-    + '<tr><td colspan="5">MwSt. 8.1%</td><td class="ph"></td><td></td></tr>'
-    + '<tr class="tot"><td colspan="5">TOTAL inkl. MwSt.</td><td class="ph"></td><td></td></tr>';
-  return xlsShell('Grobkostenvoranschlag (Richtwerte)', '<table>' + rows + '</table>'
-    + '<p class="platz">– Gelb hinterlegte Felder (Menge, EP) sind auszufüllen; Totale in Excel rechnen.<br>– Richtwerte aus der Prozesswand; verbindliche Beträge nach Offerten.</p>');
+  tr('ttl', '<td></td><td></td><td>TOTAL (exkl. MwSt., Richtwerte)</td><td></td><td></td><td></td><td class="r chf" x:fml="=' + totCells.map(t => 'G' + t).join('+') + '"></td><td></td>');
+  const totalR = r;
+  tr('', nb(2) + '<td class="nb">MwSt. 8.1%</td>' + nb(3) + '<td class="nb r chf" x:fml="=G' + totalR + '*0.081"></td>' + nb(1));
+  const mwstR = r;
+  tr('ttl', '<td></td><td></td><td>TOTAL inkl. MwSt.</td><td></td><td></td><td></td><td class="r chf" x:fml="=G' + totalR + '+G' + mwstR + '"></td><td></td>');
+  tr('', '<td class="nb" colspan="8">&nbsp;</td>');
+  ['&ndash;&nbsp;&nbsp;Gelb hinterlegte Felder (Menge, EP) sind Eingabefelder &ndash; das Total berechnet sich in Excel automatisch.',
+   '&ndash;&nbsp;&nbsp;Richtwerte aus der Prozesswand; verbindliche Betr&auml;ge erst nach Einholung der Offerten.',
+   '&ndash;&nbsp;&nbsp;Automatisch erzeugt aus der Prozesswand am ' + heute() + '.'
+  ].forEach(t => { tr('', nb(2) + '<td class="fuss" colspan="6">' + t + '</td>'); });
+  return xlsShell('Kostenvoranschlag', '<table>' + rows + '</table>', {});
 }
 
 let docsAiCache = null;
@@ -1363,7 +1454,7 @@ async function docsAiTexts() {
   const out = await callClaude(
     'Du schreibst kurze, sachliche Textbausteine für Projektdokumente eines Schweizer Betriebs. Deutsch, präzise, keine Floskeln. Antworte NUR als JSON: '
     + '{"auftrag":{"ausgangslage":"...","zielbild":"...","nutzen":"..."},"beschaffung":{"antrag":"...","ausgangslage":"...","begruendung":"..."}} (je 2-4 Sätze bzw. 3 Spiegelstriche als Zeilen).',
-    'Projekt: ' + boardName() + '\n' + ctx, 'claude-sonnet-5', 1600);
+    'Projekt: ' + boardName() + '\n' + ctx, CHAT_MODEL, 1600);
   docsAiCache = extractJSON(out);
   return docsAiCache;
 }
@@ -1439,6 +1530,116 @@ document.getElementById('docsBtn').onclick = () => {
   document.getElementById('dTermin').onclick = () => { downloadXls('Terminprogramm - ' + boardName() + '.xls', genTermin()); sysMsg('📄 Terminprogramm erzeugt.', true); };
   document.getElementById('dKosten').onclick = () => { downloadXls('Kostenvoranschlag - ' + boardName() + '.xls', genKosten()); sysMsg('📄 Kostenvoranschlag erzeugt.', true); };
 };
+
+/* ================================================================
+   KI-CHECK – manuell ergänzte Post-its prüfen & bestätigen
+   ================================================================ */
+document.getElementById('checkBtn').onclick = async () => {
+  if (previewState) return;
+  if (!getKey()) { openKeyModal(() => document.getElementById('checkBtn').click()); return; }
+  const cards = state.postits.filter(c => !c.checked).slice(0, 24);
+  if (!cards.length) { sysMsg('Alles bereits geprüft – keine neuen oder geänderten Post-its.', true); return; }
+  addMsg('user', '[KI-Check] ' + cards.length + ' Post-it(s) prüfen');
+  const wait = sysMsg('🔍 prüft Ebene, Formulierung, Dubletten …', true);
+  const liste = cards.map((c, j) => 'K' + (j+1) + ' [Phase ' + (phaseIndexOfX(c.x)+1) + ' · ' + laneTitle(LANES[LANE_KEYS.indexOf(laneKeyOfY(c.y))]) + ']: ' + cleanTxt(c.text)).join('\n');
+  try {
+    const out = await callClaude(
+      'Du prüfst Post-its einer OSTO/SYMA-Prozesswand nach der Methodik: 1) richtige Ebene? (Reflexion=Risiken, Input=Experten, Mgmt=Führung/Entscheid, Sache=Zwischenziele, Handlung=Tätigkeiten, Doku=Ergebnisse, Anspruchsgruppen=Betroffene) 2) klar und konkret formuliert? 3) Dublette zu Bestehendem? 4) fehlt eine offensichtliche Verbindung/Rückkopplung? '
+      + 'Sei wohlwollend: bestätige, was in Ordnung ist. Antworte NUR als JSON: {"karten":[{"k":"K1","ok":true},{"k":"K2","ok":false,"hinweis":"kurz was stört","empfehlung":"kurz was tun"}]}',
+      'Gesamtziel: ' + (state.goal || '-') + '\nZu prüfen:\n' + liste + '\n\nBestehende Wand (Kontext):\n' + wallContext(),
+      CHAT_MODEL, 1800);
+    const res = extractJSON(out);
+    wait.remove();
+    let okN = 0; const probleme = [];
+    (res.karten || []).forEach(k => {
+      const idx = parseInt(String(k.k || '').replace(/\D/g, ''), 10) - 1;
+      const c = cards[idx]; if (!c) return;
+      if (k.ok) { c.checked = true; okN++; }
+      else probleme.push('«' + cleanTxt(c.text).slice(0, 60) + '»: ' + (k.hinweis || '') + (k.empfehlung ? ' → ' + k.empfehlung : ''));
+    });
+    save();
+    addMsg('ai', '✅ ' + okN + ' Post-it(s) geprüft und bestätigt.' + (probleme.length ? '\n\n⚠️ Hinweise:\n– ' + probleme.join('\n– ') : '\nKeine Beanstandungen.'));
+  } catch (e) { wait.remove(); addMsg('sys', '❌ KI-Check: ' + e.message); }
+};
+
+/* ================================================================
+   SCHRITT-FÜR-SCHRITT-BEGLEITER – geführt durch den Prozess
+   ================================================================ */
+const GUIDE_ORDER = ['sache', 'handlung', 'input', 'mgmt2', 'mgmt1', 'doku', 'anspruch', 'reflexion'];
+let guide = null;
+function buildGuideList() {
+  const list = [];
+  state.phases.forEach((p, i) => {
+    GUIDE_ORDER.forEach(k => {
+      cardsInPhaseLane(i, k).sort((a, b) => (a.x - b.x) || (a.y - b.y)).forEach(c => list.push(c.id));
+    });
+  });
+  return list;
+}
+document.getElementById('guideBtn').onclick = () => {
+  if (previewState) return;
+  const list = buildGuideList();
+  if (!list.length) { sysMsg('Noch keine Post-its auf der Wand – zuerst «KI-Struktur» ausführen oder Karten anlegen.', true); return; }
+  guide = { list, idx: 0 };
+  renderGuide();
+};
+function renderGuide() {
+  if (!guide) return;
+  const c = getPostit(guide.list[guide.idx]);
+  if (!c) { guide.list.splice(guide.idx, 1); if (!guide.list.length) { guide = null; closeModal(); return; } if (guide.idx >= guide.list.length) guide.idx = guide.list.length - 1; return renderGuide(); }
+  const pi = phaseIndexOfX(c.x), p = state.phases[pi] || { name: '?' };
+  const lane = LANES[LANE_KEYS.indexOf(laneKeyOfY(c.y))] || LANES[0];
+  const st = c.status || 'offen';
+  const last = guide.idx >= guide.list.length - 1;
+  openModal('<h3>&#9654; Schritt ' + (guide.idx + 1) + ' von ' + guide.list.length + '</h3>'
+    + '<div style="font-size:12px;color:var(--muted);margin:-6px 0 10px">Phase ' + (pi + 1) + ' &middot; <b>' + esc(p.name) + '</b> &middot; Ebene: ' + esc(laneTitle(lane)) + '</div>'
+    + '<label>Dieser Schritt (anpassbar)</label><textarea id="gText" rows="3">' + esc(cleanTxt(c.text)) + '</textarea>'
+    + '<label style="margin-top:10px">Erl&auml;uterung des Begleiters</label>'
+    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;min-height:40px;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
+    + '<label style="margin-top:10px">Status</label>'
+    + '<div><button id="gStatus" style="font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:5px 12px;background:#f6f7f9">' + STATUS_LABEL[st] + ' &rarr; weiterschalten</button></div>'
+    + '<div class="btnrow"><button id="gPrev"' + (guide.idx === 0 ? ' disabled' : '') + '>&#9664; Zur&uuml;ck</button>'
+    + '<button class="go" id="gNext">' + (last ? 'Fertig &#10003;' : 'Weiter &#9654;') + '</button>'
+    + '<button id="gRedo">&#129302; Neu erl&auml;utern</button>'
+    + '<button id="gClose" style="margin-left:auto">Schliessen</button></div>', true);
+  const saveText = () => {
+    const v = document.getElementById('gText').value.trim();
+    if (v && v !== cleanTxt(c.text)) {
+      const prefix = (c.text.match(/^[⚠️↻👥📄🎯🧭💡]+\s*/u) || [''])[0];
+      c.text = prefix + v; save(); render();
+    }
+  };
+  document.getElementById('gText').addEventListener('change', saveText);
+  document.getElementById('gStatus').onclick = function () {
+    c.status = STATUS_NEXT[c.status || 'offen']; save(); render();
+    this.textContent = STATUS_LABEL[c.status] + ' → weiterschalten';
+  };
+  document.getElementById('gPrev').onclick = () => { saveText(); if (guide.idx > 0) { guide.idx--; renderGuide(); } };
+  document.getElementById('gNext').onclick = () => {
+    saveText();
+    if (last) { guide = null; closeModal(); sysMsg('✅ Prozess einmal komplett durchlaufen.', true); return; }
+    guide.idx++; renderGuide();
+  };
+  document.getElementById('gRedo').onclick = () => { delete c.guide; document.getElementById('gExpl').innerHTML = '&#129302; Erl&auml;uterung wird erstellt &hellip;'; guideExplain(c, pi, lane); };
+  document.getElementById('gClose').onclick = () => { saveText(); guide = null; closeModal(); };
+  if (!c.guide) guideExplain(c, pi, lane);
+}
+async function guideExplain(c, pi, lane) {
+  if (!getKey()) { const el = document.getElementById('gExpl'); if (el) el.textContent = 'Kein API-Schlüssel – Knopf «API-Schlüssel» im KI-Panel.'; return; }
+  const p = state.phases[pi] || {};
+  try {
+    const out = await callClaude(
+      'Du bist Prozessbegleiter in einer OSTO/SYMA-Prozesswand (Systems Engineering). Erkläre dem Nutzer den aktuellen Schritt in 3–4 kurzen Sätzen: was hier zu tun ist, warum an dieser Stelle im Prozess, worauf zu achten ist und wer einzubeziehen ist. Deutsch, direkt, praxisnah, kein Vorgeplänkel.',
+      'Gesamtziel: ' + (state.goal || '-') + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
+      + '\nEbene: ' + laneTitle(lane) + ' (' + lane.desc + ')\nSchritt: "' + cleanTxt(c.text) + '"',
+      CHAT_MODEL, 500);
+    c.guide = out; save();
+    const el = document.getElementById('gExpl');
+    if (el && guide && getPostit(guide.list[guide.idx]) === c) el.textContent = out;
+  } catch (e) {
+    const el = document.getElementById('gExpl'); if (el) el.textContent = '❌ ' + e.message;
+  }
+}
 
 /* ================================================================
    DASHBOARD – Fortschritt, Verantwortliche, Termine, Kanban
@@ -1637,7 +1838,7 @@ async function cardAI(id) {
     try {
       const hist = 'Projektziel: ' + (state.goal||'-') + '\nPhase: ' + p.name + '\nAufgabe: "' + c.text + '"\n\n'
         + dlg.filter(m => m !== think).map(m => (m.role==='user' ? 'Anweisung: ' : 'Assistent: ') + m.text).join('\n\n');
-      const out = await callClaude(sys, hist, 'claude-sonnet-5', 1100);
+      const out = await callClaude(sys, hist, CHAT_MODEL, 1100);
       dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text: out }); lastAnswer = out; renderDlg(); persist();
     } catch (e) { dlg.splice(dlg.indexOf(think), 1); dlg.push({ role:'ai', text:'❌ ' + e.message }); renderDlg(); persist(); }
   }
@@ -1673,7 +1874,7 @@ async function phaseTool(kind) {
   try {
     if (kind === 'zusammenfassung') {
       prop.style.display = 'block'; prop.innerHTML = '🤖 fasst zusammen …';
-      const out = await callClaude('Du bist Projektmoderator. Fasse den Stand dieser Phase in 4–6 Sätzen zusammen: Ziel, Vorgehen, offene Punkte, Risiken. Deutsch, sachlich.', ctx + '\n\n' + wallContext(), 'claude-sonnet-5', 700);
+      const out = await callClaude('Du bist Projektmoderator. Fasse den Stand dieser Phase in 4–6 Sätzen zusammen: Ziel, Vorgehen, offene Punkte, Risiken. Deutsch, sachlich.', ctx + '\n\n' + wallContext(), CHAT_MODEL, 700);
       prop.innerHTML = '<h4>Zusammenfassung Phase ' + (lupeIdx+1) + '</h4><div style="font-size:12.5px;white-space:pre-wrap">' + esc(out) + '</div><div class="row"><button class="drop">Schliessen</button></div>';
       prop.querySelector('.drop').onclick = () => { prop.style.display = 'none'; };
       return;
@@ -1686,7 +1887,7 @@ async function phaseTool(kind) {
     prop.style.display = 'block'; prop.innerHTML = '🤖 erarbeitet Vorschläge …';
     const data = await (async () => {
       const sys = cfgKind.sys + '\nAntworte AUSSCHLIESSLICH als JSON: {"items":["...","..."]}';
-      const t = await callClaude(sys, ctx, 'claude-sonnet-5', 800);
+      const t = await callClaude(sys, ctx, CHAT_MODEL, 800);
       return extractJSON(t);
     })();
     const items = (data.items || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 6);
@@ -1800,6 +2001,8 @@ document.getElementById('logoutBtn').onclick = async () => {
 };
 
 /* ---------- Start ---------- */
+document.getElementById('verTag').textContent = APP_VERSION;
+document.title = 'OSTO/SYMA Prozesswand ' + APP_VERSION;
 initAuth();
 </script>
 </body>
