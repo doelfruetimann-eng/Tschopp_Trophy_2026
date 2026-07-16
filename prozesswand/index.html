@@ -1096,6 +1096,8 @@ const DOC_CSS = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:
   + 'th{background:#eef1f5;font-weight:bold} .kopf td:first-child{width:30%;background:#f5f7fa;font-weight:bold}'
   + '.ph{color:#8a6d1a;background:#fdf6dd} .platz{color:#8a6d1a} .blk{background:#eef1f5;font-weight:bold} .tot{font-weight:bold;background:#f5f7fa}'
   + '.logo{max-height:52pt} ul{margin:4pt 0 4pt 16pt;padding:0} li{margin:2pt 0}'
+  + '.g{width:14pt;border:0.5pt solid #dfe3e8} .gh{width:14pt;font-size:7.5pt;text-align:center;color:#6b7280;border:0.5pt solid #dfe3e8}'
+  + '.gp{width:14pt;background:#b9cfe9;border:0.5pt solid #dfe3e8} .gt{width:14pt;background:#3f6fb0;border:0.5pt solid #dfe3e8}'
   + '.foot{font-size:8.5pt;color:#6b7280;margin-top:16pt;border-top:0.5pt solid #c9cdd3;padding-top:4pt}';
 
 function docKopf(title) {
@@ -1133,35 +1135,42 @@ function txtOrPlatz(t, platz) { return t ? '<p>' + esc(t).replace(/\n/g,'<br>') 
 
 function genAuftrag(ai) {
   ai = ai || {};
+  const p0 = state.phases[0] || {};
   const ms = state.milestones.length ? state.milestones[state.milestones.length-1].label.split(/\s[–-]\sKriterien/)[0] : '';
   let b = '<table class="kopf">'
     + '<tr><td>Projekt</td><td>' + esc(boardName()) + '</td></tr>'
-    + '<tr><td>Ziel / Zweck</td><td>' + esc(state.goal || '[Gesamtziel ergänzen]') + '</td></tr>'
-    + '<tr><td>Auftraggeber</td><td class="platz">[ergänzen]</td></tr>'
-    + '<tr><td>Projektkoordination</td><td>' + esc((state.phases[0] && state.phases[0].wer) || '[ergänzen]') + '</td></tr>'
-    + '<tr><td>Stand</td><td>Entwurf ' + heute() + '</td></tr>'
+    + '<tr><td>Bereiche / Räume</td><td class="platz">[betroffene Bereiche ergänzen]</td></tr>'
+    + '<tr><td>Objekt / Standort</td><td class="platz">[Objekt, Adresse ergänzen]</td></tr>'
+    + '<tr><td>Auftraggeber</td><td class="platz">[Auftraggeber ergänzen]</td></tr>'
+    + '<tr><td>Projektkoordination</td><td>' + esc(p0.wer || '[ergänzen]') + '</td></tr>'
+    + '<tr><td>Planung</td><td class="platz">[internes Projektteam / extern]</td></tr>'
+    + '<tr><td>Stand</td><td>Entwurf aus Prozesswand, ' + heute() + '</td></tr>'
     + '<tr><td>Kritischer Meilenstein</td><td>' + esc(ms || '[ergänzen]') + '</td></tr></table>';
-  b += '<h2>1. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen: Anlass, Dringlichkeit, Bezug zum Betrieb');
-  b += '<h2>2. Zielbild / Nutzung</h2>' + txtOrPlatz(ai.zielbild || state.goal, 'Zielbild ergänzen')
-    + ulOrPlatz(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel)).filter(Boolean), 'Phasenziele ergänzen');
-  b += '<h2>3. Nutzen</h2>' + txtOrPlatz(ai.nutzen, 'Nutzen ergänzen: betrieblich, qualitativ, finanziell');
-  b += '<h2>4. Projektumfang / Phasen</h2>';
+  b += '<h2>1. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || p0.input, 'Ausgangslage beschreiben')
+    + '<p class="platz">[Fachliche Ausgangslage ergänzen: betrieblicher Anlass, Dringlichkeit, Bezug zum Betriebskonzept.]</p>';
+  b += '<h2>2. Zielbild / Nutzung</h2>'
+    + (ai.zielbild ? txtOrPlatz(ai.zielbild, '') : '<p>Nach Abschluss des Projekts soll Folgendes erreicht sein:</p>')
+    + ulOrPlatz([state.goal].concat(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel))).filter(Boolean), 'Zielbild und Phasenziele ergänzen');
+  b += '<h2>3. Nutzen</h2>' + (ai.nutzen ? txtOrPlatz(ai.nutzen, '') : '<ul><li class="platz">[betrieblicher Nutzen]</li><li class="platz">[qualitativer Nutzen]</li><li class="platz">[finanzieller Nutzen]</li></ul>');
+  b += '<h2>4. Projektumfang</h2>'
+    + '<p>Der Projektumfang umfasst die nachstehenden, in der Prozesswand erfassten Phasen und Aufgaben. Die Detailplanung und verbindliche Beauftragung erfolgen nach Freigabe.</p>';
   state.phases.forEach((p, i) => {
     b += '<p><b>Phase ' + (i+1) + ' – ' + esc(p.name) + '</b>' + (p.output ? ' &middot; Ergebnis: ' + esc(p.output) : '') + '</p>';
   });
   b += '<p><b>Übergeordnete Leistungen:</b></p><ul>'
-    + '<li>Projektleitung und Koordination' + (state.phases[0] && state.phases[0].wer ? ' (' + esc(state.phases[0].wer) + ')' : '') + '</li>'
+    + '<li>Projektleitung und Koordination' + (p0.wer ? ' (' + esc(p0.wer) + ')' : '') + '</li>'
+    + '<li>Einholen der Offerten / Angebote je Bereich</li>'
     + '<li>Abstimmung mit den Anspruchsgruppen an den Entscheid-Toren</li>'
     + '<li>Dokumentation der Ergebnisse je Phase</li></ul>';
-  b += '<h2>5. Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Aufgabe</th><th>Verantwortlich</th><th>Status</th></tr>';
+  b += '<h2>5. Massnahmen / Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Massnahme / Aufgabe</th><th>Verantwortlich</th><th>Priorität</th><th>Status</th></tr>';
   let n = 0;
   state.phases.forEach((p, i) => {
     tasksOfPhase(i).forEach(c => {
       n++;
-      b += '<tr><td>' + n + '</td><td>' + (i+1) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td>' + (STATUS_LABEL[c.status||'offen']) + '</td></tr>';
+      b += '<tr><td>' + n + '</td><td>' + (i+1) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="ph"></td><td>' + (STATUS_LABEL[c.status||'offen']) + '</td></tr>';
     });
   });
-  b += '</table>';
+  b += '</table><p class="platz">Priorität (hoch / mittel / tief) je Massnahme ergänzen.</p>';
   return docShell('Auftragsbeschrieb', b);
 }
 
@@ -1174,9 +1183,14 @@ function genBeschaffung(ai) {
     + '<tr><td>Empfänger</td><td class="platz">[Entscheidgremium]</td></tr>'
     + '<tr><td>Antragsdatum</td><td>' + heute() + '</td></tr>'
     + '<tr><td>Status</td><td>Entwurf zur Vervollständigung</td></tr></table>';
-  b += '<h2>1. Antrag / Beschluss</h2>' + (ai.antrag ? txtOrPlatz(ai.antrag,'')
-    : '<ul><li>die im Projekt «' + esc(boardName()) + '» definierten Massnahmen zu genehmigen,</li><li>die finanziellen Mittel gemäss Kostenzusammenstellung zu sprechen,</li><li>den Auftrag zur Umsetzung zu erteilen.</li></ul>');
-  b += '<h2>2. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen');
+  b += '<h2>1. Antrag / Beschluss</h2>'
+    + '<p>Der Empfänger <span class="platz">[Entscheidgremium]</span> wird gebeten,</p>'
+    + (ai.antrag ? txtOrPlatz(ai.antrag,'')
+    : '<ul><li>die im Projekt «' + esc(boardName()) + '» erfassten Massnahmen zu genehmigen,</li>'
+      + '<li>die finanziellen Mittel gemäss beiliegendem Grobkostenvoranschlag zu sprechen,</li>'
+      + '<li>den Auftrag zur Detailplanung und Umsetzung an <span class="platz">[ausführende Stelle]</span> zu erteilen.</li></ul>');
+  b += '<h2>2. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen')
+    + '<p class="platz">[Ergänzen: betriebliche Dringlichkeit, Auswirkungen bei Nichtumsetzung, Bezug zu Vorgaben.]</p>';
   b += '<h2>3. Begründung des Bedarfs</h2>' + (ai.begruendung ? txtOrPlatz(ai.begruendung,'')
     : ulOrPlatz(cardsInPhaseLane(0,'reflexion').concat(state.phases[1] ? cardsInPhaseLane(1,'reflexion') : []).map(c => cleanTxt(c.text)), 'Begründung ergänzen: Dringlichkeit, Risiken bei Nichtumsetzung'));
   b += '<h2>4. Kostenübersicht</h2><table><tr><th>Block</th><th>Beschreibung</th><th>Total CHF (Richtwert)</th></tr>';
@@ -1194,20 +1208,32 @@ function genBeschaffung(ai) {
 }
 
 function genTermin() {
-  let rows = '<tr><th>Nr.</th><th>Aufgabe</th><th>Verantwortlich</th><th>Start</th><th>Dauer</th></tr>';
+  const WKS = 16, totalPx = Math.max(1, canvasW(state));
+  const wk = x => clamp(Math.floor(x / totalPx * WKS), 0, WKS - 1);
+  const gantt = (a, b2, cls) => { let g = ''; for (let w = 0; w < WKS; w++) g += '<td class="' + (w >= a && w <= b2 ? cls : 'g') + '"></td>'; return g; };
+  const dia = pos => { let g = ''; for (let w = 0; w < WKS; w++) g += (w === pos ? '<td class="g" style="text-align:center;color:#b3543f;font-weight:bold">&#9670;</td>' : '<td class="g"></td>'); return g; };
+  let rows = '<tr><th>Nr.</th><th>Aufgabe</th><th>Verantwortlich</th><th>Start</th><th>Dauer</th><th colspan="' + WKS + '">Wochen ab Projektstart &rarr; (W1&ndash;W' + WKS + ')</th></tr>';
+  rows += '<tr><td></td><td></td><td></td><td></td><td></td>';
+  for (let w = 1; w <= WKS; w++) rows += '<td class="gh">' + w + '</td>';
+  rows += '</tr>';
   let n = 0;
   state.phases.forEach((p, i) => {
-    rows += '<tr class="blk"><td>P' + (i+1) + '</td><td colspan="4">Phase ' + (i+1) + ' – ' + esc(p.name) + (p.wann ? ' (' + esc(p.wann) + ')' : '') + '</td></tr>';
+    const pa = wk(phaseLeft(i)), pb = wk(phaseLeft(i) + state.phases[i].w - 1);
+    rows += '<tr class="blk"><td>P' + (i+1) + '</td><td colspan="4">Phase ' + (i+1) + ' – ' + esc(p.name) + (p.wann ? ' (' + esc(p.wann) + ')' : '') + '</td>' + gantt(pa, pb, 'gp') + '</tr>';
     tasksOfPhase(i).forEach(c => {
       n++;
-      rows += '<tr><td>' + n + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="ph">' + esc(p.wann || '[KW]') + '</td><td class="ph">[Dauer]</td></tr>';
+      const ta = wk(c.x);
+      rows += '<tr><td>' + n + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + esc(p.wer || '') + '</td><td class="ph">W' + (ta+1) + '</td><td class="ph">1 W</td>' + gantt(ta, Math.min(ta + 1, pb), 'gt') + '</tr>';
     });
   });
-  if (state.milestones.length) {
-    rows += '<tr class="blk"><td>&#9670;</td><td colspan="4">Meilensteine / Entscheid-Tore</td></tr>';
-    state.milestones.forEach(m => { rows += '<tr><td>&#9670;</td><td colspan="4">' + esc(m.label) + '</td></tr>'; });
-  }
-  return xlsShell('Grobterminprogramm', '<table>' + rows + '</table><p class="platz">Gelb markierte Felder (Start, Dauer) sind zu präzisieren; verbindliche Termine nach Offerten/Freigabe.</p>');
+  state.milestones.forEach(m => {
+    const short = m.label.split(/\s[–-]\sKriterien/)[0];
+    rows += '<tr><td>&#9670;</td><td colspan="4">' + esc(short) + '</td>' + dia(wk(m.x)) + '</tr>';
+  });
+  return xlsShell('Grobterminprogramm',
+    '<table>' + rows + '</table>'
+    + '<p class="platz">– Wochenachse ist relativ (W1 = Projektstart), abgeleitet aus der Zeitachse der Prozesswand; Kalenderwochen eintragen.<br>'
+    + '– Gelbe Felder (Start, Dauer) präzisieren; verbindliche Termine nach Offerten/Freigabe.</p>');
 }
 
 function genKosten() {
@@ -1216,7 +1242,7 @@ function genKosten() {
     const blk = String.fromCharCode(65 + i);
     rows += '<tr class="blk"><td>' + blk + '</td><td colspan="6">' + esc(p.name) + '</td></tr>';
     tasksOfPhase(i).forEach((c, j) => {
-      rows += '<tr><td>' + blk + '.' + ('0'+(j+1)).slice(-2) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td class="ph"></td><td class="ph"></td><td class="ph"></td><td></td><td>' + esc(p.wer || '') + '</td></tr>';
+      rows += '<tr><td>' + blk + '.' + ('0'+(j+1)).slice(-2) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td class="ph">1</td><td class="ph">pauschal</td><td class="ph"></td><td></td><td>' + esc(p.wer || '') + '</td></tr>';
     });
     rows += '<tr class="tot"><td colspan="5">Zwischentotal Block ' + blk + '</td><td class="ph"></td><td></td></tr>';
   });
