@@ -28,7 +28,7 @@ header button.active { background:#e3ecf7; border-color:var(--accent); color:var
 #wallScroll { flex:1; overflow:auto; position:relative; }
 #wallCanvas { position:relative; background:#fff; }
 
-.lane-label { position:absolute; left:0; width:150px; padding:8px 10px; border-right:2px solid #c3c9d1; border-bottom:1px solid var(--line); background:#f8f9fb; z-index:5; cursor:default; }
+.lane-label { position:absolute; left:0; width:150px; padding:8px 10px; border-right:2px solid #c3c9d1; border-bottom:1px solid var(--line); background:#f8f9fb; z-index:15; cursor:default; box-shadow:2px 0 4px rgba(0,0,0,.06); }
 .lane-label b { display:block; font-size:11.5px; }
 .lane-label span { display:block; font-size:10px; color:var(--muted); margin-top:2px; line-height:1.3; }
 .lane-row { position:absolute; border-bottom:1px solid var(--line); z-index:1; }
@@ -449,7 +449,7 @@ function render() {
 
   s.phases.forEach((p, i) => {
     const left = LABEL_W + phaseLeft(i, s);
-    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-fit" data-fi="' + i + '" title="Phase vergrössern &amp; Post-its nebeneinander anordnen">&#8646;</button><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
+    h += '<div class="phase-head" data-pi="' + i + '" style="left:' + left + 'px;width:' + p.w + 'px"><b>' + esc(p.name) + '</b><small>Phase ' + (i+1) + ' · klicken = System-Ei</small><button class="phase-fit" data-fi="' + i + '" title="' + (p.fitBack ? 'Phase wieder zusammenschieben' : 'Phase vergrössern &amp; Post-its nebeneinander anordnen') + '">&#8646;</button><button class="phase-zoom" data-zi="' + i + '" title="Phasen-Lupe: im Detail bearbeiten">&#128269;</button><div class="phase-resize" data-ri="' + i + '"></div></div>';
     if (i > 0) h += '<div class="phase-sep" style="left:' + left + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
   });
 
@@ -479,7 +479,14 @@ function render() {
   h += '</svg>';
 
   canvas.innerHTML = h;
+  syncLaneLabels();
 }
+const wallScrollEl = document.getElementById('wallScroll');
+function syncLaneLabels() {
+  const sl = wallScrollEl.scrollLeft;
+  canvas.querySelectorAll('.lane-label').forEach(el => { el.style.left = sl + 'px'; });
+}
+wallScrollEl.addEventListener('scroll', syncLaneLabels);
 
 /* ---------- Interaktion (Delegation) ---------- */
 let drag = null;
@@ -528,6 +535,7 @@ document.addEventListener('pointerup', () => {
   drag = null;
   if (d.type === 'resize') {
     const p = state.phases[d.i], delta = p.w - d.w0;
+    if (delta) delete p.fitBack; // manuelle Breite hebt den Aufzieh-Merker auf
     const mineIds = new Set([].concat(...(d.mine || [])));
     if (delta) {
       const oldRight = phaseLeft(d.i) + d.w0;
@@ -563,10 +571,19 @@ function arrangePhaseCards(i, byLane) {
 }
 function arrangePhase(i) { arrangePhaseCards(i, LANE_KEYS.map(k => cardsInPhaseLane(i, k))); }
 function fitPhase(i) {
+  const p = state.phases[i];
   const byLane = LANE_KEYS.map(k => cardsInPhaseLane(i, k));
   const mineIds = new Set([].concat(...byLane.map(a => a.map(c => c.id))));
-  const maxN = Math.max(1, ...byLane.map(a => a.length));
-  resizePhaseTo(i, Math.max(PHASE_W, 24 + maxN * (PI_W + 10)), mineIds);
+  if (p.fitBack) {
+    // wieder zusammenschieben auf die Breite von vorher
+    resizePhaseTo(i, p.fitBack, mineIds);
+    delete p.fitBack;
+  } else {
+    const maxN = Math.max(1, ...byLane.map(a => a.length));
+    const target = Math.max(PHASE_W, 24 + maxN * (PI_W + 10));
+    if (target > p.w) p.fitBack = p.w;
+    resizePhaseTo(i, target, mineIds);
+  }
   arrangePhaseCards(i, byLane);
   save(); render();
 }
