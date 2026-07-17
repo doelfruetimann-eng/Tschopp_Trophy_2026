@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V29';
+const APP_VERSION = 'V30';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -1856,11 +1856,14 @@ function renderGuide() {
     + '<div style="font-size:12px;color:var(--muted);margin:0 0 10px">Phase ' + (pi + 1) + ' &middot; <b>' + esc(p.name) + '</b> &middot; Ebene: ' + esc(laneTitle(lane)) + '</div>'
     + '<label>Dieser Schritt (anpassbar)</label><textarea id="gText" rows="3">' + esc(cleanTxt(c.text)) + '</textarea>'
     + '<label style="margin-top:10px">Erl&auml;uterung des Begleiters</label>'
-    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;height:170px;overflow-y:auto;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
+    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;height:150px;overflow-y:auto;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
+    + '<details style="margin-top:8px"><summary style="font-size:11.5px;font-weight:600;color:var(--accent);cursor:pointer">&#128203; Umsetzungs-Prompt anzeigen (f&uuml;r Claude &amp; Co.)</summary>'
+    + '<div id="gPromptTxt" style="font-size:11px;line-height:1.45;background:#f6f7f9;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-top:5px;max-height:130px;overflow-y:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace"></div></details>'
     + '<label style="margin-top:10px">Status</label>'
     + '<div><button id="gStatus" style="font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:5px 12px;background:#f6f7f9">' + STATUS_LABEL[st] + ' &rarr; weiterschalten</button></div>'
     + '<div class="btnrow"><button id="gRedo">&#129302; Neu erl&auml;utern</button>'
-    + '<button id="gPrompt">&#128203; Prompt f&uuml;r Claude kopieren</button></div>', true);
+    + '<button id="gMakeDoc" style="background:var(--accent);border-color:var(--accent);color:#fff">&#128196; Dokument erzeugen</button>'
+    + '<button id="gPrompt">&#128203; Prompt kopieren</button></div>', true);
   overlay.classList.add('guide-pos');
   markGuideCard();
   const saveText = () => {
@@ -1889,10 +1892,29 @@ function renderGuide() {
     + ((c.todos || []).length ? '\nTeilaufgaben:\n' + c.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
     + (c.guide ? '\nHinweise des Prozessbegleiters: ' + c.guide : '')
     + '\n\nAuftrag: Setze diesen Schritt konkret um und liefere das Arbeitsergebnis, das er verlangt (z.B. Dokument, Checkliste, E-Mail, Analyse, Plan).\nStil-Vorgabe: ' + docStyle();
+  document.getElementById('gPromptTxt').textContent = stepPrompt();
   document.getElementById('gPrompt').onclick = async function () {
     try { await navigator.clipboard.writeText(stepPrompt()); this.textContent = '✓ kopiert – in Claude einfügen'; }
-    catch (e) { const el = document.getElementById('gExpl'); if (el) el.textContent = stepPrompt(); }
-    setTimeout(() => { this.innerHTML = '&#128203; Prompt f&uuml;r Claude kopieren'; }, 2500);
+    catch (e) { const d = document.getElementById('gPromptTxt'); if (d) d.parentElement.open = true; }
+    setTimeout(() => { this.innerHTML = '&#128203; Prompt kopieren'; }, 2500);
+  };
+  document.getElementById('gMakeDoc').onclick = async function () {
+    if (!getKey()) { openKeyModal(null); return; }
+    this.disabled = true; this.textContent = '… erstellt Dokument …';
+    const el = document.getElementById('gExpl');
+    try {
+      const out = await callClaude(
+        'Du erstellst sofort brauchbare Arbeitsdokumente. Wähle die passende Dokumentart selbst (Konzept, Antrag, Checkliste, Protokollvorlage, oder wissenschaftliche Arbeit mit Titel, Abstract, Einleitung, Methodik, Ergebnisse, Diskussion, Quellen). Deutsch, offene Punkte als [Platzhalter].\nStandard-Anweisung des Nutzers (immer strikt befolgen): ' + docStyle(),
+        stepPrompt(), CHAT_MODEL, 3500);
+      const first = out.split('\n').find(l => l.trim()) || 'Dokument';
+      const title = first.replace(/^[-•#\d.\s]+/, '').slice(0, 80);
+      const nc = addCard(pi, 'doku', '📄 ' + title.slice(0, 140), 'offen');
+      nc.doc = out; save(); render();
+      downloadDoc(title.replace(/[\\/:*?"<>|]/g, '-').slice(0, 60) + '.doc', docShell(title, textToDocHtml(out)));
+      if (el) el.textContent = '✅ Dokument erzeugt, heruntergeladen und auf der Dokumentationsebene gespeichert:\n«' + title + '»\n\n' + (c.guide || '');
+      sysMsg('📄 Dokument aus Begleiter-Schritt erzeugt.', true);
+    } catch (e) { if (el) el.textContent = '❌ ' + e.message; }
+    this.disabled = false; this.innerHTML = '&#128196; Dokument erzeugen';
   };
   document.getElementById('gClose').onclick = () => { saveText(); guide = null; closeModal(); };
   if (!c.guide) guideExplain(c, pi, lane);
@@ -1902,7 +1924,10 @@ async function guideExplain(c, pi, lane) {
   const p = state.phases[pi] || {};
   try {
     const out = await callClaude(
-      'Du bist Prozessbegleiter in einer OSTO/SYMA-Prozesswand (Systems Engineering). Erkläre dem Nutzer den aktuellen Schritt in 3–4 kurzen Sätzen: was hier zu tun ist, warum an dieser Stelle im Prozess, worauf zu achten ist und wer einzubeziehen ist. Deutsch, direkt, praxisnah, kein Vorgeplänkel.',
+      'Du bist Prozessbegleiter in einer OSTO/SYMA-Prozesswand (Systems Engineering). Erkläre den aktuellen Schritt EXAKT in diesem Aufbau:\n'
+      + '2–3 kurze Sätze: was hier zu tun ist und warum jetzt.\n'
+      + 'Dann die Zeile «Darauf achten:» gefolgt von 3–4 knappen Punkten (– …): Stolpersteine, wer einzubeziehen ist, konkreter nächster Handgriff.\n'
+      + 'Deutsch, direkt, praxisnah, kein Vorgeplänkel, kein Text danach.',
       'Gesamtziel: ' + (state.goal || '-') + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
       + '\nEbene: ' + laneTitle(lane) + ' (' + lane.desc + ')\nSchritt: "' + cleanTxt(c.text) + '"',
       CHAT_MODEL, 500);
