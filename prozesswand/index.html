@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V30';
+const APP_VERSION = 'V31';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -1810,6 +1810,31 @@ document.getElementById('checkBtn').onclick = async () => {
    ================================================================ */
 const GUIDE_ORDER = ['sache', 'handlung', 'input', 'mgmt2', 'mgmt1', 'doku', 'anspruch', 'reflexion'];
 let guide = null;
+function stripMd(t) { return String(t || '').replace(/\*\*/g, '').replace(/^#+\s*/gm, ''); }
+/* Erwartetes Arbeitsergebnis je Ebene – macht jeden Umsetzungs-Prompt schrittspezifisch */
+const LANE_ERGEBNIS = {
+  handlung: 'das konkrete Arbeitsergebnis dieser Tätigkeit (z.B. Checkliste, Plan, E-Mail, Analyse)',
+  doku: 'das fertige Dokument selbst',
+  sache: 'einen messbaren Zwischenstand mit klaren Prüfkriterien (erfüllt ja/nein)',
+  reflexion: 'eine kurze Risikobewertung mit konkreten Gegenmassnahmen',
+  anspruch: 'einen Einbezugs- und Kommunikationsplan für diese Anspruchsgruppe',
+  input: 'eine Abklärung mit den genannten Fachpersonen inkl. konkretem Fragenkatalog',
+  mgmt1: 'eine Entscheidungsvorlage für die Bereichsleitung (Optionen, Empfehlung)',
+  mgmt2: 'eine Steuerungsunterlage für die Projektleitung'
+};
+function buildStepPrompt(c, pi, lane) {
+  const p = state.phases[pi] || {};
+  return 'Kontext: Projekt «' + boardName() + '».\nGesamtziel: ' + (state.goal || '-')
+    + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
+    + '\nEbene: ' + laneTitle(lane)
+    + '\nSchritt (Post-it): "' + cleanTxt(c.text) + '"'
+    + ((c.todos || []).length ? '\nTeilaufgaben zu diesem Schritt:\n' + c.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
+    + (c.guide ? '\nHinweise des Prozessbegleiters:\n' + stripMd(c.guide) : '')
+    + '\n\nAuftrag: Setze GENAU diesen Schritt um – «' + cleanTxt(c.text).slice(0, 120) + '». Erwartetes Ergebnis: '
+    + (LANE_ERGEBNIS[laneKeyOfY(c.y)] || 'das passende Arbeitsergebnis') + '.'
+    + ((c.todos || []).length ? ' Arbeite die Teilaufgaben sichtbar ab (je ein Abschnitt oder Punkt).' : '')
+    + '\nStil-Vorgabe: ' + docStyle();
+}
 function markGuideCard() {
   canvas.querySelectorAll('.postit.guide-now').forEach(e => e.classList.remove('guide-now'));
   if (!guide) return;
@@ -1856,7 +1881,7 @@ function renderGuide() {
     + '<div style="font-size:12px;color:var(--muted);margin:0 0 10px">Phase ' + (pi + 1) + ' &middot; <b>' + esc(p.name) + '</b> &middot; Ebene: ' + esc(laneTitle(lane)) + '</div>'
     + '<label>Dieser Schritt (anpassbar)</label><textarea id="gText" rows="3">' + esc(cleanTxt(c.text)) + '</textarea>'
     + '<label style="margin-top:10px">Erl&auml;uterung des Begleiters</label>'
-    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;height:150px;overflow-y:auto;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
+    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;min-height:52px;white-space:pre-wrap">' + (c.guide ? esc(stripMd(c.guide)) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
     + '<details style="margin-top:8px"><summary style="font-size:11.5px;font-weight:600;color:var(--accent);cursor:pointer">&#128203; Umsetzungs-Prompt anzeigen (f&uuml;r Claude &amp; Co.)</summary>'
     + '<div id="gPromptTxt" style="font-size:11px;line-height:1.45;background:#f6f7f9;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-top:5px;max-height:130px;overflow-y:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace"></div></details>'
     + '<label style="margin-top:10px">Status</label>'
@@ -1885,13 +1910,7 @@ function renderGuide() {
     guide.idx++; renderGuide();
   };
   document.getElementById('gRedo').onclick = () => { delete c.guide; document.getElementById('gExpl').innerHTML = '&#129302; Erl&auml;uterung wird erstellt &hellip;'; guideExplain(c, pi, lane); };
-  const stepPrompt = () => 'Kontext: Projekt «' + boardName() + '».\nGesamtziel: ' + (state.goal || '-')
-    + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
-    + '\nEbene: ' + laneTitle(lane)
-    + '\nSchritt: "' + cleanTxt(c.text) + '"'
-    + ((c.todos || []).length ? '\nTeilaufgaben:\n' + c.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
-    + (c.guide ? '\nHinweise des Prozessbegleiters: ' + c.guide : '')
-    + '\n\nAuftrag: Setze diesen Schritt konkret um und liefere das Arbeitsergebnis, das er verlangt (z.B. Dokument, Checkliste, E-Mail, Analyse, Plan).\nStil-Vorgabe: ' + docStyle();
+  const stepPrompt = () => buildStepPrompt(c, pi, lane);
   document.getElementById('gPromptTxt').textContent = stepPrompt();
   document.getElementById('gPrompt').onclick = async function () {
     try { await navigator.clipboard.writeText(stepPrompt()); this.textContent = '✓ kopiert – in Claude einfügen'; }
@@ -1931,9 +1950,13 @@ async function guideExplain(c, pi, lane) {
       'Gesamtziel: ' + (state.goal || '-') + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
       + '\nEbene: ' + laneTitle(lane) + ' (' + lane.desc + ')\nSchritt: "' + cleanTxt(c.text) + '"',
       CHAT_MODEL, 500);
-    c.guide = out; save();
-    const el = document.getElementById('gExpl');
-    if (el && guide && getPostit(guide.list[guide.idx]) === c) el.textContent = out;
+    c.guide = stripMd(out); save();
+    if (guide && getPostit(guide.list[guide.idx]) === c) {
+      const el = document.getElementById('gExpl');
+      if (el) el.textContent = c.guide;
+      const d = document.getElementById('gPromptTxt');
+      if (d) d.textContent = buildStepPrompt(c, pi, lane);
+    }
   } catch (e) {
     const el = document.getElementById('gExpl'); if (el) el.textContent = '❌ ' + e.message;
   }
