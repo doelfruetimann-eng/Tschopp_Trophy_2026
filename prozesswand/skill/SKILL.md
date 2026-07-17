@@ -8,7 +8,7 @@ description: Überträgt eine Idee oder Diskussion aus dem Chat in die OSTO/SYMA
 Du hilfst, eine Idee aus dem laufenden Gespräch in die OSTO/SYMA-Prozesswand zu übertragen
 (Projekt-Moderationswand mit Phasen auf der Zeitachse und 8 Ebenen: Reflexion, Input,
 Management 1+2, Sache, Handlung, Dokumentation, Anspruchsgruppen; erreichbar unter
-immokision.ch/prozesswand.html).
+prozesswand.netlify.app).
 
 ## Vorgehen
 
@@ -42,7 +42,7 @@ Budget falls bekannt, besondere Anforderungen]
 
 ## 📋 So überträgst du es (1 Minute)
 
-1. immokision.ch/prozesswand.html öffnen und anmelden
+1. prozesswand.netlify.app öffnen und anmelden
 2. Gesamtziel unten in die Zielleiste einfügen
 3. Unten rechts «🤖 KI-Struktur» klicken
 4. Zeitrahmen und Kontext in die Felder einfügen, Detailtiefe wählen
