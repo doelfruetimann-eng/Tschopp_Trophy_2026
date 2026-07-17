@@ -323,7 +323,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V26';
+const APP_VERSION = 'V27';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -1121,16 +1121,30 @@ document.getElementById('swarmBtn').onclick = () => {
     + '<label>Zeitrahmen</label><input type="text" id="swZeit" placeholder="z.B. Januar bis Juni 2027, 6 Monate">'
     + '<label>Kontext / Projektart</label><textarea id="swKontext" rows="3" placeholder="z.B. Umbau Mehrfamilienhaus, Budget 1.2 Mio, Bauherrschaft privat, Bewilligung nötig"></textarea>'
     + '<label>Detailtiefe</label><select id="swTiefe"><option value="grob">grob (Überblick)</option><option value="mittel" selected>mittel</option><option value="fein">fein (detailliert)</option></select>'
+    + '<label style="margin-top:10px">Projekt-Unterlagen einlesen (.md / .txt) &ndash; optional</label>'
+    + '<input type="file" id="swMd" multiple accept=".md,.markdown,.txt">'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:3px">z.B. CLAUDE.md, Konzept-/Handoff-Dokumente, ADRs &ndash; der Schwarm leitet Phasen und Inhalte direkt daraus ab.</div>'
     + '<div class="btnrow"><button class="go" id="swStart">Schwarm starten</button><button id="mCancel">Abbrechen</button></div>');
   document.getElementById('mCancel').onclick = closeModal;
-  document.getElementById('swStart').onclick = () => {
+  document.getElementById('swStart').onclick = async () => {
     const cfg = {
       ziel: document.getElementById('swZiel').value.trim(),
       zeit: document.getElementById('swZeit').value.trim(),
       kontext: document.getElementById('swKontext').value.trim(),
-      tiefe: document.getElementById('swTiefe').value
+      tiefe: document.getElementById('swTiefe').value,
+      unterlagen: ''
     };
     if (!cfg.ziel) { document.getElementById('swZiel').focus(); return; }
+    const files = Array.from(document.getElementById('swMd').files || []).slice(0, 6);
+    if (files.length) {
+      const texts = await Promise.all(files.map(f => new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res('--- Datei: ' + f.name + ' ---\n' + String(r.result || ''));
+        r.onerror = () => res('--- Datei: ' + f.name + ' (nicht lesbar) ---');
+        r.readAsText(f);
+      })));
+      cfg.unterlagen = texts.join('\n\n').slice(0, 24000);
+    }
     closeModal();
     if (!getKey()) { openKeyModal(() => runSwarm(cfg)); return; }
     runSwarm(cfg);
@@ -1144,7 +1158,8 @@ async function runSwarm(cfg) {
     const arch = await agentJSON('architekt',
       'Du bist der ARCHITEKT-Agent. Du stückelst ein Projekt in Phasen nach dieser Methodik:\n\n' + METHODIK
       + '\n\nErzeuge 4–8 projektspezifische Phasen. Format:\n{"phasen":[{"name":"...","anteil":15,"gate":{"name":"Entscheid: ...","kriterien":["messbares Kriterium 1","Kriterium 2"]}}]}\n"anteil" = geschätzter Anteil an der Projektdauer in Prozent (Summe ≈ 100).',
-      'Gesamtziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || 'keiner angegeben') + '\nDetailtiefe: ' + cfg.tiefe, 2500);
+      'Gesamtziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || 'keiner angegeben') + '\nDetailtiefe: ' + cfg.tiefe
+      + (cfg.unterlagen ? '\n\nProjekt-Unterlagen (massgeblich – Phasen, Beteiligte und Inhalte daraus ableiten):\n' + cfg.unterlagen.slice(0, 20000) : ''), 2500);
     if (!arch || !Array.isArray(arch.phasen) || arch.phasen.length < 3) throw new Error('Architekt lieferte keine brauchbare Phasenstruktur.');
     const phasen = arch.phasen.slice(0, 8);
     sysMsg('✅ ' + phasen.length + ' Phasen: ' + phasen.map(p => p.name).join(' → '));
@@ -1163,6 +1178,7 @@ async function runSwarm(cfg) {
             + '"schritte":["..."],"ergebnisse":["..."],"management":["..."],"zwischenziele":["..."],"experten":["..."]}\n'
             + 'Max. ' + nMax + ' schritte, max. 3 ergebnisse, max. 2 management, max. 2 zwischenziele, max. 2 experten. Detailtiefe: ' + fein + '.',
             'Projektziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || '-')
+            + (cfg.unterlagen ? '\nUnterlagen-Auszug (Inhalte bevorzugt hieraus):\n' + cfg.unterlagen.slice(0, 6000) : '')
             + '\nPhase ' + (i+1) + ' von ' + phasen.length + ': ' + phasen[i].name
             + '\nGate am Phasenende: ' + (phasen[i].gate && phasen[i].gate.name || 'Entscheid')
             + (i > 0 ? '\nErgebnisse der Vorphase: ' + (plaene[i-1] && plaene[i-1].ergebnisse || []).join('; ') : ''), 2500);
@@ -1740,17 +1756,22 @@ function renderGuide() {
   const lane = LANES[LANE_KEYS.indexOf(laneKeyOfY(c.y))] || LANES[0];
   const st = c.status || 'offen';
   const last = guide.idx >= guide.list.length - 1;
-  openModal('<h3>&#9654; Schritt ' + (guide.idx + 1) + ' von ' + guide.list.length + '</h3>'
-    + '<div style="font-size:12px;color:var(--muted);margin:-6px 0 10px">Phase ' + (pi + 1) + ' &middot; <b>' + esc(p.name) + '</b> &middot; Ebene: ' + esc(laneTitle(lane)) + '</div>'
+  const gBtn = 'font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);border-radius:6px;background:#f6f7f9;padding:5px 11px;';
+  openModal('<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">'
+    + '<h3 style="margin:0">&#9654; Schritt ' + (guide.idx + 1) + ' von ' + guide.list.length + '</h3>'
+    + '<span style="flex:1"></span>'
+    + '<button id="gPrev"' + (guide.idx === 0 ? ' disabled' : '') + ' style="' + gBtn + '">&#9664; Zur&uuml;ck</button>'
+    + '<button id="gNext" style="' + gBtn + 'background:var(--accent);border-color:var(--accent);color:#fff">' + (last ? 'Fertig &#10003;' : 'Weiter &#9654;') + '</button>'
+    + '<button id="gClose" title="Schliessen" style="' + gBtn + 'padding:5px 9px">&#10005;</button>'
+    + '</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin:0 0 10px">Phase ' + (pi + 1) + ' &middot; <b>' + esc(p.name) + '</b> &middot; Ebene: ' + esc(laneTitle(lane)) + '</div>'
     + '<label>Dieser Schritt (anpassbar)</label><textarea id="gText" rows="3">' + esc(cleanTxt(c.text)) + '</textarea>'
     + '<label style="margin-top:10px">Erl&auml;uterung des Begleiters</label>'
-    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;min-height:40px;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
+    + '<div id="gExpl" style="font-size:12.5px;line-height:1.5;background:#f2f7fc;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:9px 11px;height:170px;overflow-y:auto;white-space:pre-wrap">' + (c.guide ? esc(c.guide) : '&#129302; Erl&auml;uterung wird erstellt &hellip;') + '</div>'
     + '<label style="margin-top:10px">Status</label>'
     + '<div><button id="gStatus" style="font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:5px 12px;background:#f6f7f9">' + STATUS_LABEL[st] + ' &rarr; weiterschalten</button></div>'
-    + '<div class="btnrow"><button id="gPrev"' + (guide.idx === 0 ? ' disabled' : '') + '>&#9664; Zur&uuml;ck</button>'
-    + '<button class="go" id="gNext">' + (last ? 'Fertig &#10003;' : 'Weiter &#9654;') + '</button>'
-    + '<button id="gRedo">&#129302; Neu erl&auml;utern</button>'
-    + '<button id="gClose" style="margin-left:auto">Schliessen</button></div>', true);
+    + '<div class="btnrow"><button id="gRedo">&#129302; Neu erl&auml;utern</button>'
+    + '<button id="gPrompt">&#128203; Prompt f&uuml;r Claude kopieren</button></div>', true);
   overlay.classList.add('guide-pos');
   markGuideCard();
   const saveText = () => {
@@ -1772,6 +1793,18 @@ function renderGuide() {
     guide.idx++; renderGuide();
   };
   document.getElementById('gRedo').onclick = () => { delete c.guide; document.getElementById('gExpl').innerHTML = '&#129302; Erl&auml;uterung wird erstellt &hellip;'; guideExplain(c, pi, lane); };
+  const stepPrompt = () => 'Kontext: Projekt «' + boardName() + '».\nGesamtziel: ' + (state.goal || '-')
+    + '\nPhase ' + (pi + 1) + ': ' + (p.name || '-') + (p.ziel ? ' – Phasenziel: ' + p.ziel : '')
+    + '\nEbene: ' + laneTitle(lane)
+    + '\nSchritt: "' + cleanTxt(c.text) + '"'
+    + ((c.todos || []).length ? '\nTeilaufgaben:\n' + c.todos.map(t => '– ' + t.t + (t.wer ? ' (zuständig: ' + t.wer + ')' : '')).join('\n') : '')
+    + (c.guide ? '\nHinweise des Prozessbegleiters: ' + c.guide : '')
+    + '\n\nAuftrag: Setze diesen Schritt konkret um und liefere das Arbeitsergebnis, das er verlangt (z.B. Dokument, Checkliste, E-Mail, Analyse, Plan).\nStil-Vorgabe: ' + docStyle();
+  document.getElementById('gPrompt').onclick = async function () {
+    try { await navigator.clipboard.writeText(stepPrompt()); this.textContent = '✓ kopiert – in Claude einfügen'; }
+    catch (e) { const el = document.getElementById('gExpl'); if (el) el.textContent = stepPrompt(); }
+    setTimeout(() => { this.innerHTML = '&#128203; Prompt f&uuml;r Claude kopieren'; }, 2500);
+  };
   document.getElementById('gClose').onclick = () => { saveText(); guide = null; closeModal(); };
   if (!c.guide) guideExplain(c, pi, lane);
 }
