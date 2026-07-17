@@ -251,6 +251,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
   <button id="addPhase">+ Phase</button>
   <button id="addMs">+ Meilenstein</button>
   <button id="connectBtn">Verbinden</button>
+  <button id="fsBtn" title="Vollbildmodus ein/aus">&#x26F6; Vollbild</button>
   <input type="file" id="importFile" accept=".json" style="display:none">
 </header>
 
@@ -323,7 +324,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V32';
+const APP_VERSION = 'V33';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -387,7 +388,8 @@ function normalizeState(d) {
     laneTitles: d.laneTitles || {},
     kiLog: Array.isArray(d.kiLog) ? d.kiLog : [],
     kiConvo: Array.isArray(d.kiConvo) ? d.kiConvo : [],
-    solo: d.solo === true
+    solo: d.solo === true,
+    ssot: typeof d.ssot === 'string' ? d.ssot : ''
   };
   s.phases.forEach(p => { if (typeof p.w !== 'number' || p.w < 80) p.w = PHASE_W; });
   return s;
@@ -918,6 +920,13 @@ document.getElementById('importFile').addEventListener('change', e => {
   };
   r.readAsText(f); e.target.value = '';
 });
+document.getElementById('fsBtn').onclick = () => {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+  else { document.documentElement.requestFullscreen().catch(() => { sysMsg('Vollbild wird von diesem Browser hier nicht erlaubt.', true); }); }
+};
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('fsBtn').innerHTML = document.fullscreenElement ? '&#x26F6; Vollbild aus' : '&#x26F6; Vollbild';
+});
 document.getElementById('undoBtn').onclick = () => {
   if (previewState) return;
   for (let i = undoStack.length - 1; i >= 0; i--) {
@@ -969,17 +978,19 @@ document.getElementById('keyBtn').onclick = () => openKeyModal(null);
 function cleanKey(s) { return (s || '').replace(/[^\x20-\x7E]/g, '').trim(); }
 /* Modell-Wahl: Fable 5 für anspruchsvolle Denk-Rollen, automatischer Rückfall auf Sonnet */
 const CHAT_MODEL = 'claude-opus-4-8'; // Alltag: Opus 4.8 · Denk-Rollen (Architekt/Kritiker): Fable 5
-async function callClaude(system, user, model, maxTok) {
-  try { return await rawClaude(system, user, model, maxTok); }
+async function callClaude(system, user, model, maxTok, temperature) {
+  try { return await rawClaude(system, user, model, maxTok, temperature); }
   catch (e) {
-    if (/model/i.test(e.message) && model !== MODEL_FALLBACK) return rawClaude(system, user, MODEL_FALLBACK, maxTok);
+    if (/model/i.test(e.message) && model !== MODEL_FALLBACK) return rawClaude(system, user, MODEL_FALLBACK, maxTok, temperature);
     throw e;
   }
 }
-async function rawClaude(system, user, model, maxTok) {
+async function rawClaude(system, user, model, maxTok, temperature) {
   const key = cleanKey(getKey());
   if (!key) throw new Error('Kein API-Schlüssel hinterlegt.');
   if (!/^sk-ant-/.test(key)) throw new Error('Der gespeicherte API-Schlüssel sieht unvollständig aus – bitte über «API-Schlüssel» komplett neu einfügen (beginnt mit sk-ant-…).');
+  const body = { model, max_tokens: maxTok || 2000, system, messages: [{ role: 'user', content: user }] };
+  if (typeof temperature === 'number') body.temperature = temperature;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -988,7 +999,7 @@ async function rawClaude(system, user, model, maxTok) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true'
     },
-    body: JSON.stringify({ model, max_tokens: maxTok || 2000, system, messages: [{ role: 'user', content: user }] })
+    body: JSON.stringify(body)
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
@@ -1091,10 +1102,12 @@ const METHODIK = 'PHASENMODELL (Basis: Systems Engineering / Wiegand «Handbuch 
 const MODELS = { architekt: 'claude-fable-5', planer: 'claude-haiku-4-5-20251001', kritiker: 'claude-fable-5', verbinder: 'claude-haiku-4-5-20251001' };
 const MODEL_FALLBACK = 'claude-sonnet-5';
 
+/* Strukturläufe (Schwarm) deterministisch: Temperature 0.2 */
+const SWARM_TEMP = 0.2;
 async function agentCall(role, system, user, maxTok) {
-  try { return await callClaude(system, user, MODELS[role], maxTok); }
+  try { return await callClaude(system, user, MODELS[role], maxTok, SWARM_TEMP); }
   catch (e) {
-    if (/model/i.test(e.message) && MODELS[role] !== MODEL_FALLBACK) return await callClaude(system, user, MODEL_FALLBACK, maxTok);
+    if (/model/i.test(e.message) && MODELS[role] !== MODEL_FALLBACK) return await callClaude(system, user, MODEL_FALLBACK, maxTok, SWARM_TEMP);
     throw e;
   }
 }
@@ -1153,13 +1166,15 @@ document.getElementById('swarmBtn').onclick = () => {
   };
 };
 
+const VERBATIM_REGEL = '\n\nVERBATIM-MODUS (verbindlich): Teilschritte, Zahlen, Methoden, Termine und Phasen-Zuordnungen aus dem Nutzer-Kontext und den Projekt-Unterlagen WÖRTLICH übernehmen. Nichts umformulieren, keine Werte ersetzen oder erfinden, keine eigenen Beispiele einsetzen. Fehlende Angaben als [offen] markieren.';
 async function runSwarm(cfg) {
   const TIEFE_N = { grob: 3, mittel: 4, fein: 6 };
+  const verbatim = cfg.tiefe === 'fein' ? VERBATIM_REGEL : '';
   try {
     sysMsg('🏛️ Architekt-Agent plant Phasen und Entscheid-Tore …');
     const arch = await agentJSON('architekt',
       'Du bist der ARCHITEKT-Agent. Du stückelst ein Projekt in Phasen nach dieser Methodik:\n\n' + METHODIK
-      + '\n\nErzeuge 4–8 projektspezifische Phasen. Format:\n{"phasen":[{"name":"...","anteil":15,"gate":{"name":"Entscheid: ...","kriterien":["messbares Kriterium 1","Kriterium 2"]}}]}\n"anteil" = geschätzter Anteil an der Projektdauer in Prozent (Summe ≈ 100).',
+      + '\n\nErzeuge 4–8 projektspezifische Phasen. Format:\n{"phasen":[{"name":"...","anteil":15,"gate":{"name":"Entscheid: ...","kriterien":["messbares Kriterium 1","Kriterium 2"]}}]}\n"anteil" = geschätzter Anteil an der Projektdauer in Prozent (Summe ≈ 100).' + verbatim,
       'Gesamtziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || 'keiner angegeben') + '\nDetailtiefe: ' + cfg.tiefe
       + (cfg.unterlagen ? '\n\nProjekt-Unterlagen (massgeblich – Phasen, Beteiligte und Inhalte daraus ableiten):\n' + cfg.unterlagen.slice(0, 20000) : ''), 2500);
     if (!arch || !Array.isArray(arch.phasen) || arch.phasen.length < 3) throw new Error('Architekt lieferte keine brauchbare Phasenstruktur.');
@@ -1179,7 +1194,8 @@ async function runSwarm(cfg) {
             + '\n\nFormat:\n{"ei":{"ziel":"...","input":"...","output":"...","wer":"...","was":"...","wann":"...","wie":"..."},'
             + '"schritte":[{"t":"Schritt, max. 12 Worte","aufgaben":["konkrete Teilaufgabe, max. 10 Worte"]}],"ergebnisse":["..."],"management":["..."],"zwischenziele":["..."],"experten":["..."]}\n'
             + 'Max. ' + nMax + ' schritte; je Schritt 2–3 "aufgaben" (bei grober Detailtiefe darf "aufgaben" leer sein). Max. 3 ergebnisse, max. 2 management, max. 2 zwischenziele, max. 2 experten. Detailtiefe: ' + fein + '.'
-            + (state.solo ? '\nEinzelperson-Projekt: keine Rollen/Zuständigen vergeben; "wer" im ei knapp halten (die Person selbst).' : ''),
+            + (state.solo ? '\nEinzelperson-Projekt: keine Rollen/Zuständigen vergeben; "wer" im ei knapp halten (die Person selbst).' : '')
+            + verbatim,
             'Projektziel: ' + cfg.ziel + '\nZeitrahmen: ' + (cfg.zeit || 'offen') + '\nKontext: ' + (cfg.kontext || '-')
             + (cfg.unterlagen ? '\nUnterlagen-Auszug (Inhalte bevorzugt hieraus):\n' + cfg.unterlagen.slice(0, 6000) : '')
             + '\nPhase ' + (i+1) + ' von ' + phasen.length + ': ' + phasen[i].name
@@ -1379,6 +1395,25 @@ function boardName() { const b = activeBoard(); return b ? b.name : 'Projekt'; }
 /* Dauerhafte Stil-Anweisung für alle KI-Dokumente – im Konto gespeichert, gilt überall */
 const DOC_STYLE_DEFAULT = 'Erstelle alle Dokumente als Kurzfassung: max. 2 Seiten, Checklisten und nummerierte Listen statt Tabellen, keine Markdown-Sonderzeichen (#, |, **), Platzhalter nur wo zwingend nötig, direkt in Word kopierbar. Kein Vorgeplänkel.';
 function docStyle() { return (collection && collection.docStyle && collection.docStyle.trim()) || DOC_STYLE_DEFAULT; }
+function ssot() { return (state && typeof state.ssot === 'string') ? state.ssot.trim() : ''; }
+/* B2: Kopfzeile nur ausgeben, wenn ein Wert vorhanden ist – keine Platzhalter */
+function kopfRow(label, value) { return value ? '<tr><td>' + label + '</td><td>' + esc(value) + '</td></tr>' : ''; }
+/* B3: Texte am Satzende kürzen statt hart zu kappen; ohne Satzende → Volltext */
+function cutAtSentence(t, softMax) {
+  t = String(t || '');
+  if (t.length <= softMax) return t;
+  const window = t.slice(0, softMax + 100);
+  let cut = -1;
+  ['.', '!', '?', '\n'].forEach(ch => { const i = window.lastIndexOf(ch); if (i > cut) cut = i; });
+  return cut > 20 ? t.slice(0, cut + 1).trim() : t;
+}
+/* B4: «erledigt» nur, wenn auch alle Teilaufgaben erledigt sind */
+function exportStatus(c) {
+  const st = c.status || 'offen';
+  const open = (c.todos || []).filter(t => !t.done).length;
+  if (st === 'erledigt' && open > 0) return { label: 'erledigt ⚠ (' + open + ' offene Teilaufgaben)', warn: true };
+  return { label: STATUS_LABEL[st], warn: false };
+}
 function heute() { const d = new Date(); return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear(); }
 function tasksOfPhase(i) { return cardsInPhaseLane(i, 'handlung'); }
 function cleanTxt(t) { return (t||'').replace(/^[⚠️↻👥📄🎯🧭💡]+\s*/u, ''); }
@@ -1417,7 +1452,8 @@ function docKopf(title) {
     + '<td><h1>' + esc(title) + '</h1><div class="proj">' + esc(boardName()) + '</div></td>'
     + '<td style="text-align:right;width:35%">' + logo + '<div class="meta">Prozesswand &middot; ' + heute() + '</div></td>'
     + '</tr></table><div class="hr"></div>'
-    + '<div class="note">Entwurf, automatisch aus der OSTO/SYMA-Prozesswand erzeugt. Als Platzhalter [in Klammern] markierte Inhalte sind fachlich zu vervollständigen.</div>';
+    + (ssot() ? '<div style="font-size:9pt;font-weight:bold;color:#651B32;margin:2pt 0">Bei Widerspruch gilt: ' + esc(ssot()) + '</div>' : '')
+    + '<div class="note">Automatisch aus der OSTO/SYMA-Prozesswand erzeugt.</div>';
 }
 function docFoot() {
   return '<div class="foot">' + esc(boardName()) + ' &middot; erzeugt am ' + heute() + ' aus der Prozesswand &middot; Entwurf zur Vervollständigung</div>';
@@ -1453,79 +1489,77 @@ function ulOrPlatz(items, platz) {
 }
 function txtOrPlatz(t, platz) { return t ? '<p>' + esc(t).replace(/\n/g,'<br>') + '</p>' : '<p class="platz">[' + platz + ']</p>'; }
 
-function genAuftrag(ai) {
-  ai = ai || {};
+function genAuftrag() {
   const p0 = state.phases[0] || {};
   const ms = state.milestones.length ? state.milestones[state.milestones.length-1].label.split(/\s[–-]\sKriterien/)[0] : '';
+  let n2 = 0;
+  const num = () => { n2++; return n2 + '. '; };
   let b = '<table class="kopf">'
-    + '<tr><td>Projekt</td><td>' + esc(boardName()) + '</td></tr>'
-    + '<tr><td>Bereiche / Räume</td><td class="platz">[betroffene Bereiche ergänzen]</td></tr>'
-    + '<tr><td>Objekt / Standort</td><td class="platz">[Objekt, Adresse ergänzen]</td></tr>'
-    + '<tr><td>Auftraggeber</td><td class="platz">[Auftraggeber ergänzen]</td></tr>'
-    + '<tr><td>Projektkoordination</td><td>' + esc(p0.wer || '[ergänzen]') + '</td></tr>'
-    + '<tr><td>Planung</td><td class="platz">[internes Projektteam / extern]</td></tr>'
-    + '<tr><td>Stand</td><td>Entwurf aus Prozesswand, ' + heute() + '</td></tr>'
-    + '<tr><td>Kritischer Meilenstein</td><td>' + esc(ms || '[ergänzen]') + '</td></tr></table>';
-  b += '<h2>1. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || p0.input, 'Ausgangslage beschreiben')
-    + '<p class="platz">[Fachliche Ausgangslage ergänzen: betrieblicher Anlass, Dringlichkeit, Bezug zum Betriebskonzept.]</p>';
-  b += '<h2>2. Zielbild / Nutzung</h2>'
-    + (ai.zielbild ? txtOrPlatz(ai.zielbild, '') : '<p>Nach Abschluss des Projekts soll Folgendes erreicht sein:</p>')
-    + ulOrPlatz([state.goal].concat(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel))).filter(Boolean), 'Zielbild und Phasenziele ergänzen');
-  b += '<h2>3. Nutzen</h2>' + (ai.nutzen ? txtOrPlatz(ai.nutzen, '') : '<ul><li class="platz">[betrieblicher Nutzen]</li><li class="platz">[qualitativer Nutzen]</li><li class="platz">[finanzieller Nutzen]</li></ul>');
-  b += '<h2>4. Projektumfang</h2>'
+    + kopfRow('Projekt', boardName())
+    + kopfRow('Projektkoordination', state.solo ? '' : p0.wer)
+    + kopfRow('Stand', 'Entwurf aus Prozesswand, ' + heute())
+    + kopfRow('Kritischer Meilenstein', ms)
+    + '</table>';
+  if (p0.input) b += '<h2>' + num() + 'Ausgangslage</h2><p>' + esc(p0.input).replace(/\n/g, '<br>') + '</p>';
+  const ziele = [state.goal].concat(state.phases.map(p => p.ziel && (p.name + ': ' + p.ziel))).filter(Boolean);
+  if (ziele.length) {
+    b += '<h2>' + num() + 'Zielbild / Nutzung</h2><p>Nach Abschluss des Projekts soll Folgendes erreicht sein:</p><ul>'
+      + ziele.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>';
+  }
+  b += '<h2>' + num() + 'Projektumfang</h2>'
     + '<p>Der Projektumfang umfasst die nachstehenden, in der Prozesswand erfassten Phasen und Aufgaben. Die Detailplanung und verbindliche Beauftragung erfolgen nach Freigabe.</p>'
     + '<table><tr><th style="width:36pt">Phase</th><th style="width:150pt">Bezeichnung</th><th>Ergebnis / Output</th><th style="width:80pt">Termin</th></tr>';
   state.phases.forEach((p, i) => {
-    b += '<tr><td class="c">' + (i+1) + '</td><td><b>' + esc(p.name) + '</b></td><td>' + (p.output ? esc(p.output) : '<span class="platz">[Ergebnis definieren]</span>') + '</td><td>' + esc(p.wann || '') + '</td></tr>';
+    b += '<tr><td class="c">' + (i+1) + '</td><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.output || '') + '</td><td>' + esc(p.wann || '') + '</td></tr>';
   });
   b += '</table>';
-  b += '<p><b>Übergeordnete Leistungen:</b></p><ul>'
-    + '<li>Projektleitung und Koordination' + (p0.wer ? ' (' + esc(p0.wer) + ')' : '') + '</li>'
-    + '<li>Einholen der Offerten / Angebote je Bereich</li>'
-    + '<li>Abstimmung mit den Anspruchsgruppen an den Entscheid-Toren</li>'
-    + '<li>Dokumentation der Ergebnisse je Phase</li></ul>';
-  b += '<h2>5. Massnahmen / Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Massnahme / Aufgabe</th><th>Verantwortlich</th><th>Priorität</th><th>Status</th></tr>';
+  b += '<h2>' + num() + 'Massnahmen / Aufgaben aus der Prozesswand</h2><table><tr><th>Nr.</th><th>Phase</th><th>Massnahme / Aufgabe</th>' + (state.solo ? '' : '<th>Verantwortlich</th>') + '<th>Priorität</th><th>Status</th></tr>';
   let n = 0;
   state.phases.forEach((p, i) => {
     tasksOfPhase(i).forEach(c => {
       n++;
-      b += '<tr><td>' + n + '</td><td>' + (i+1) + '</td><td>' + esc(cleanTxt(c.text)) + '</td><td>' + (state.solo ? '' : esc(p.wer || '')) + '</td><td class="ph"></td><td>' + (STATUS_LABEL[c.status||'offen']) + '</td></tr>';
+      b += '<tr><td>' + n + '</td><td>' + (i+1) + '</td><td>' + esc(cleanTxt(c.text)) + '</td>' + (state.solo ? '' : '<td>' + esc(p.wer || '') + '</td>') + '<td class="ph"></td><td>' + exportStatus(c).label + '</td></tr>';
     });
   });
-  b += '</table><p class="platz">Priorität (hoch / mittel / tief) je Massnahme ergänzen.</p>';
+  b += '</table><p class="platz">Priorität (hoch / mittel / tief) je Massnahme in den gelben Feldern ergänzen.</p>';
   return docShell('Auftragsbeschrieb', b);
 }
 
-function genBeschaffung(ai) {
-  ai = ai || {};
+function genBeschaffung() {
+  let n2 = 0;
+  const num = () => { n2++; return n2 + '. '; };
   let b = '<table class="kopf">'
-    + '<tr><td>Antragsteller</td><td class="platz">[Name, Funktion]</td></tr>'
-    + '<tr><td>Projekt</td><td>' + esc(boardName()) + '</td></tr>'
-    + '<tr><td>Ziel der Beschaffung</td><td>' + esc(state.goal || '[ergänzen]') + '</td></tr>'
-    + '<tr><td>Empfänger</td><td class="platz">[Entscheidgremium]</td></tr>'
-    + '<tr><td>Antragsdatum</td><td>' + heute() + '</td></tr>'
-    + '<tr><td>Status</td><td>Entwurf zur Vervollständigung</td></tr></table>';
-  b += '<h2>1. Antrag / Beschluss</h2>'
-    + '<p>Der Empfänger <span class="platz">[Entscheidgremium]</span> wird gebeten,</p>'
-    + (ai.antrag ? txtOrPlatz(ai.antrag,'')
-    : '<ul><li>die im Projekt «' + esc(boardName()) + '» erfassten Massnahmen zu genehmigen,</li>'
-      + '<li>die finanziellen Mittel gemäss beiliegendem Grobkostenvoranschlag zu sprechen,</li>'
-      + '<li>den Auftrag zur Detailplanung und Umsetzung an <span class="platz">[ausführende Stelle]</span> zu erteilen.</li></ul>');
-  b += '<h2>2. Ausgangslage</h2>' + txtOrPlatz(ai.ausgangslage || (state.phases[0] && state.phases[0].input), 'Ausgangslage ergänzen')
-    + '<p class="platz">[Ergänzen: betriebliche Dringlichkeit, Auswirkungen bei Nichtumsetzung, Bezug zu Vorgaben.]</p>';
-  b += '<h2>3. Begründung des Bedarfs</h2>' + (ai.begruendung ? txtOrPlatz(ai.begruendung,'')
-    : ulOrPlatz(cardsInPhaseLane(0,'reflexion').concat(state.phases[1] ? cardsInPhaseLane(1,'reflexion') : []).map(c => cleanTxt(c.text)), 'Begründung ergänzen: Dringlichkeit, Risiken bei Nichtumsetzung'));
-  b += '<h2>4. Kostenübersicht</h2><table><tr><th>Block</th><th>Beschreibung</th><th>Total CHF (Richtwert)</th></tr>';
+    + kopfRow('Projekt', boardName())
+    + kopfRow('Ziel der Beschaffung', state.goal)
+    + kopfRow('Antragsdatum', heute())
+    + kopfRow('Status', 'Entwurf zur Vervollständigung')
+    + '</table>';
+  b += '<h2>' + num() + 'Antrag / Beschluss</h2>'
+    + '<p>Es wird beantragt,</p>'
+    + '<ul><li>die im Projekt «' + esc(boardName()) + '» erfassten Massnahmen zu genehmigen,</li>'
+    + '<li>die finanziellen Mittel gemäss beiliegendem Grobkostenvoranschlag zu sprechen,</li>'
+    + '<li>den Auftrag zur Detailplanung und Umsetzung zu erteilen.</li></ul>';
+  if (state.phases[0] && state.phases[0].input) {
+    b += '<h2>' + num() + 'Ausgangslage</h2><p>' + esc(state.phases[0].input).replace(/\n/g, '<br>') + '</p>';
+  }
+  const gruende = cardsInPhaseLane(0, 'reflexion').concat(state.phases[1] ? cardsInPhaseLane(1, 'reflexion') : []).map(c => cleanTxt(c.text));
+  if (gruende.length) {
+    b += '<h2>' + num() + 'Begründung des Bedarfs</h2><ul>' + gruende.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>';
+  }
+  b += '<h2>' + num() + 'Kostenübersicht</h2><table><tr><th>Block</th><th>Beschreibung</th><th class="r">Total CHF (Richtwert)</th></tr>';
   state.phases.forEach((p, i) => {
-    b += '<tr><td>' + String.fromCharCode(65+i) + '</td><td>' + esc(p.name) + '</td><td class="ph">[Richtwert]</td></tr>';
+    b += '<tr><td>' + String.fromCharCode(65+i) + '</td><td>' + esc(p.name) + '</td><td class="ph r"></td></tr>';
   });
-  b += '<tr class="ttl"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="r">[Total]</td></tr></table>';
-  b += '<h2>5. Termine</h2><table><tr><th>Phase / Meilenstein</th><th>Termin</th></tr>';
-  state.phases.forEach((p, i) => { if (p.wann) b += '<tr><td>Phase ' + (i+1) + ' – ' + esc(p.name) + '</td><td>' + esc(p.wann) + '</td></tr>'; });
-  state.milestones.forEach(m => { b += '<tr><td>&#9670; ' + esc(m.label.split(/\s[–-]\sKriterien/)[0]) + '</td><td class="ph">[Termin]</td></tr>'; });
-  b += '</table>';
-  b += '<h2>6. Beilagen</h2><ul><li>Auftragsbeschrieb</li><li>Grobterminprogramm</li><li>Grobkostenvoranschlag</li></ul>';
-  b += '<p class="platz">Kaufmännische Inhalte (Wirtschaftlichkeit, Finanzierung) sind fachlich zu vervollständigen.</p>';
+  b += '<tr class="ttl"><td colspan="2">Total (exkl. MwSt., Richtwerte)</td><td class="r"></td></tr></table>'
+    + '<p class="platz">Richtwerte in den gelben Feldern ergänzen.</p>';
+  const termine = state.phases.filter(p => p.wann);
+  if (termine.length || state.milestones.length) {
+    b += '<h2>' + num() + 'Termine</h2><table><tr><th>Phase / Meilenstein</th><th>Termin</th></tr>';
+    state.phases.forEach((p, i) => { if (p.wann) b += '<tr><td>Phase ' + (i+1) + ' – ' + esc(p.name) + '</td><td>' + esc(p.wann) + '</td></tr>'; });
+    state.milestones.forEach(m => { b += '<tr><td>&#9670; ' + esc(m.label.split(/\s[–-]\sKriterien/)[0]) + '</td><td class="ph"></td></tr>'; });
+    b += '</table>';
+  }
+  b += '<h2>' + num() + 'Beilagen</h2><ul><li>Auftragsbeschrieb</li><li>Grobterminprogramm</li><li>Grobkostenvoranschlag</li></ul>';
   return docShell('Beschaffungsantrag', b);
 }
 
@@ -1541,6 +1575,7 @@ function genTermin() {
   rows += '<tr><td class="nb" colspan="' + (6 + WKS) + '">&nbsp;</td></tr>';
   rows += '<tr><td class="nb"></td><td class="nb"></td><td class="tt" colspan="2">Grobterminprogramm</td><td class="nb"></td><td class="nb"></td><td class="nb r" colspan="' + WKS + '">' + logo + '</td></tr>';
   rows += '<tr><td class="nb"></td><td class="nb"></td><td class="st">' + esc(boardName()) + '</td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="mt" colspan="' + WKS + '">Prozesswand &middot; ' + heute() + '</td></tr>';
+  if (ssot()) rows += '<tr><td class="nb"></td><td class="nb"></td><td class="nb" colspan="' + (4 + WKS) + '" style="font-size:8.5pt;font-weight:bold;color:#651B32">Bei Widerspruch gilt: ' + esc(ssot()) + '</td></tr>';
   rows += '<tr><td class="nb" colspan="' + (6 + WKS) + '">&nbsp;</td></tr>';
   /* KW-Zeile über dem Kopf (wie Vorlage: W → und Nummern, 8pt fett grau) */
   rows += '<tr><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb"></td><td class="nb" style="font-size:8pt;font-weight:bold;color:#666666;white-space:nowrap">W &rarr;</td>';
@@ -1582,6 +1617,7 @@ function genKosten() {
   tr('', '<td class="nb" colspan="8">&nbsp;</td>');
   tr('', nb(2) + '<td class="tt" colspan="4">Grobkostenvoranschlag (Richtwerte)</td><td class="nb r" colspan="2">' + logo + '</td>');
   tr('', '<td class="st" colspan="5">' + esc(boardName()) + '</td>' + nb(1) + '<td class="mt r" colspan="2">Prozesswand &middot; ' + heute() + '</td>');
+  if (ssot()) tr('', '<td class="nb" colspan="8" style="font-size:8.5pt;font-weight:bold;color:#651B32">Bei Widerspruch gilt: ' + esc(ssot()) + '</td>');
   tr('', '<td class="nb" colspan="8">&nbsp;</td>');
   tr('', '<th style="width:46pt">Pos.</th><th style="width:30pt"></th><th style="width:277pt">Beschreibung</th><th class="c" style="width:46pt">Menge</th><th class="c" style="width:56pt">Einheit</th><th class="r" style="width:67pt">EP CHF</th><th class="r" style="width:77pt">Total CHF</th><th style="width:119pt">Verantwortlich</th>');
   const totCells = [];
@@ -1669,7 +1705,8 @@ function genLandkarte() {
   const gy = TOP + HEADER_H + LANES.length * LANE_H + 16;
   s += '<text x="12" y="' + gy + '" font-size="9.5" font-weight="bold" fill="#333333">Gesamtziel:</text>';
   s += '<text x="72" y="' + gy + '" font-size="9.5" fill="#333333">' + tspan(state.goal, 200) + '</text>';
-  s += '<text x="12" y="' + (gy + 16) + '" font-size="8.5" fill="#666666">&#9670; Entscheid-Tor &#183; Punkt: grau=offen, blau=in Arbeit, gr&#252;n=erledigt &#183; Pfeile: Ablauf/R&#252;ckkopplung &#183; erzeugt aus der OSTO/SYMA Prozesswand</text>';
+  s += '<text x="12" y="' + (gy + 16) + '" font-size="8.5" fill="#666666">&#9670; Entscheid-Tor &#183; Punkt: grau=offen, blau=in Arbeit, gr&#252;n=erledigt &#183; Pfeile: Ablauf/R&#252;ckkopplung &#183; erzeugt aus der OSTO/SYMA Prozesswand'
+    + (ssot() ? ' &#183; Bei Widerspruch gilt: ' + esc(ssot()).slice(0, 80) : '') + '</text>';
   s += '</svg>';
   return s;
 }
@@ -1699,10 +1736,12 @@ function downloadLandkarte(fmt) {
 /* Auftrag für Claude Code: gesamter Prozess (oder eine Phase) als MD-Arbeitsauftrag */
 function genClaudeAuftrag(sel) {
   const solo = !!state.solo;
+  const warns = [];
   const L = [];
   L.push('# Auftrag: ' + boardName());
   L.push('');
   L.push('Quelle: OSTO/SYMA-Prozesswand · Stand ' + heute() + (sel === null ? ' · gesamter Prozess' : ' · nur Phase ' + (sel + 1)));
+  if (ssot()) L.push('**Bei Widerspruch gilt: ' + ssot() + '**');
   L.push('');
   L.push('## Gesamtziel');
   L.push(state.goal || '[noch nicht definiert]');
@@ -1730,9 +1769,11 @@ function genClaudeAuftrag(sel) {
     if (schritte.length) {
       L.push('### Schritte');
       schritte.forEach((c, j) => {
-        L.push((j + 1) + '. ' + cleanTxt(c.text) + '  (Status: ' + STATUS_LABEL[c.status || 'offen'] + ')');
+        const stx = exportStatus(c);
+        if (stx.warn) warns.push('Phase ' + (i + 1) + ', Schritt «' + cleanTxt(c.text).slice(0, 60) + '»: als erledigt markiert, aber Teilaufgaben offen.');
+        L.push((j + 1) + '. ' + cleanTxt(c.text) + '  (Status: ' + stx.label + ')');
         (c.todos || []).forEach(t => L.push('   - [' + (t.done ? 'x' : ' ') + '] ' + t.t + (!solo && t.wer ? ' (zuständig: ' + t.wer + ')' : '')));
-        if (c.guide) L.push('   Hinweis: ' + stripMd(c.guide).replace(/\n+/g, ' ').slice(0, 320));
+        if (c.guide) L.push('   Hinweis: ' + cutAtSentence(stripMd(c.guide).replace(/\n+/g, ' '), 320));
         L.push('   Erwartetes Ergebnis: ' + LANE_ERGEBNIS.handlung);
       });
       L.push('');
@@ -1758,37 +1799,30 @@ function genClaudeAuftrag(sel) {
       }
     }
   });
+  if (warns.length) {
+    L.push('## Export-Warnungen');
+    warns.forEach(w => L.push('- ⚠ ' + w));
+    L.push('');
+  }
   L.push('---');
   L.push('Erzeugt aus der Prozesswand am ' + heute() + '. Rückfragen an den Projektinhaber statt Annahmen treffen.');
   return L.join('\n');
 }
 
-let docsAiCache = null;
-async function docsAiTexts() {
-  if (docsAiCache) return docsAiCache;
-  const ctx = wallContext();
-  const out = await callClaude(
-    'Du schreibst kurze, sachliche Textbausteine für Projektdokumente eines Schweizer Betriebs. Deutsch, präzise, keine Floskeln. Antworte NUR als JSON: '
-    + '{"auftrag":{"ausgangslage":"...","zielbild":"...","nutzen":"..."},"beschaffung":{"antrag":"...","ausgangslage":"...","begruendung":"..."}} (je 2-4 Sätze bzw. 3 Spiegelstriche als Zeilen).',
-    'Projekt: ' + boardName() + '\n' + ctx, CHAT_MODEL, 1600);
-  docsAiCache = extractJSON(out);
-  return docsAiCache;
-}
-
 document.getElementById('docsBtn').onclick = () => {
   if (previewState) return;
-  docsAiCache = null;
   const logoRow = collection.logo
     ? '<img src="' + collection.logo + '" style="max-height:40px;vertical-align:middle"> <button id="logoDel" style="font-size:11px">Logo entfernen</button>'
     : '<input type="file" id="logoFile" accept="image/*"> <span style="font-size:11px;color:var(--muted)">wird oben in jedem Dokument platziert</span>';
   openModal('<h3>Dokumente aus der Prozesswand</h3>'
-    + '<p style="font-size:12px;color:var(--muted);margin:0 0 6px">Erzeugt Entwürfe nach deinen Vorlagen – gefüllt aus Wand «' + esc(boardName()) + '». Platzhalter [in Klammern] sind fachlich zu vervollständigen.</p>'
+    + '<p style="font-size:12px;color:var(--muted);margin:0 0 6px">Erzeugt Dokumente direkt aus den Karten-Daten der Wand «' + esc(boardName()) + '» – ohne KI-Aufruf, jederzeit reproduzierbar.</p>'
     + '<label>Logo (zentral gespeichert)</label><div>' + logoRow + '</div>'
     + '<label style="margin-top:12px">Standard-Anweisung f&uuml;r alle KI-Dokumente <span style="font-weight:400;text-transform:none">(im Konto gespeichert, gilt immer und &uuml;berall)</span></label>'
     + '<textarea id="docStyleTa" rows="3" style="font-size:12px">' + esc(docStyle()) + '</textarea>'
+    + '<label style="margin-top:12px">Referenzdokument (SSOT) <span style="font-weight:400;text-transform:none">(pro Wand &ndash; erscheint in jedem Export als &laquo;Bei Widerspruch gilt: &hellip;&raquo;)</span></label>'
+    + '<input type="text" id="ssotTa" value="' + esc(state.ssot || '') + '" placeholder="z.B. Entscheidungsstand v2 vom 17.07.2026">'
     + '<label style="margin-top:12px">Word-Dokumente</label>'
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dAuftrag">Auftragsbeschrieb (.doc)</button><button class="go" id="dBeschaffung">Beschaffungsantrag (.doc)</button></div>'
-    + '<label style="margin-top:6px"><input type="checkbox" id="dAi" checked> Texte (Ausgangslage, Nutzen, Begründung) von der KI ausformulieren lassen</label>'
     + '<label style="margin-top:12px">Excel-Arbeitsblätter</label>'
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dTermin">Terminprogramm (.xls)</button><button class="go" id="dKosten">Kostenvoranschlag (.xls)</button></div>'
     + '<label style="margin-top:12px">Architektur-Landkarte <span style="font-weight:400;text-transform:none">(ganze Wand als Bild &ndash; Pr&auml;sentation &amp; Druck)</span></label>'
@@ -1810,6 +1844,10 @@ document.getElementById('docsBtn').onclick = () => {
   document.getElementById('docStyleTa').addEventListener('change', function () {
     collection.docStyle = this.value.trim(); save();
     sysMsg('✓ Standard-Anweisung für KI-Dokumente gespeichert – gilt ab sofort überall.', true);
+  });
+  document.getElementById('ssotTa').addEventListener('change', function () {
+    state.ssot = this.value.trim(); save();
+    sysMsg('✓ Referenzdokument (SSOT) gespeichert – erscheint in jedem Export dieser Wand.', true);
   });
   modalBox.querySelectorAll('.tpl-dl').forEach(btn => btn.onclick = () => {
     const t = collection.templates[+btn.dataset.j]; if (!t) return;
@@ -1843,18 +1881,17 @@ document.getElementById('docsBtn').onclick = () => {
   });
   const ld = document.getElementById('logoDel');
   if (ld) ld.onclick = () => { delete collection.logo; save(); closeModal(); document.getElementById('docsBtn').click(); };
-  async function wordDoc(kind) {
-    let ai = null;
-    if (document.getElementById('dAi').checked && getKey()) {
-      sysMsg('🤖 KI formuliert Textbausteine für ' + (kind === 'a' ? 'Auftragsbeschrieb' : 'Beschaffungsantrag') + ' …', true);
-      try { ai = await docsAiTexts(); } catch (e) { sysMsg('⚠️ KI-Texte übersprungen: ' + e.message, true); }
-    }
-    if (kind === 'a') downloadDoc('Auftragsbeschrieb - ' + boardName() + '.doc', genAuftrag(ai && ai.auftrag));
-    else downloadDoc('Beschaffungsantrag - ' + boardName() + '.doc', genBeschaffung(ai && ai.beschaffung));
-    sysMsg('📄 Dokument erzeugt und heruntergeladen.', true);
-  }
-  document.getElementById('dAuftrag').onclick = () => wordDoc('a');
-  document.getElementById('dBeschaffung').onclick = () => wordDoc('b');
+  const exportWarnings = () => {
+    const w = [];
+    state.postits.forEach(c => { if (exportStatus(c).warn) w.push(cleanTxt(c.text).slice(0, 60)); });
+    return w;
+  };
+  const warnIfNeeded = () => {
+    const w = exportWarnings();
+    if (w.length) sysMsg('⚠️ Export-Warnung: ' + w.length + ' Karte(n) sind «erledigt», haben aber offene Teilaufgaben – im Dokument markiert.', true);
+  };
+  document.getElementById('dAuftrag').onclick = () => { downloadDoc('Auftragsbeschrieb - ' + boardName() + '.doc', genAuftrag()); warnIfNeeded(); sysMsg('📄 Auftragsbeschrieb erzeugt (rein aus Karten-Daten).', true); };
+  document.getElementById('dBeschaffung').onclick = () => { downloadDoc('Beschaffungsantrag - ' + boardName() + '.doc', genBeschaffung()); sysMsg('📄 Beschaffungsantrag erzeugt (rein aus Karten-Daten).', true); };
   document.getElementById('dCC').onclick = async () => {
     const v = document.getElementById('ccPhase').value;
     const sel = v === '' ? null : +v;
@@ -1864,6 +1901,7 @@ document.getElementById('docsBtn').onclick = () => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
     try { await navigator.clipboard.writeText(md); sysMsg('📋 Claude-Code-Auftrag heruntergeladen UND in die Zwischenablage kopiert – direkt in eine Code-Sitzung einfügen.', true); }
     catch (e) { sysMsg('📋 Claude-Code-Auftrag heruntergeladen (' + name + ').', true); }
+    warnIfNeeded();
   };
   document.getElementById('dLandS').onclick = () => { downloadLandkarte('svg'); sysMsg('🗺️ Landkarte (SVG) erzeugt.', true); };
   document.getElementById('dLandP').onclick = () => { downloadLandkarte('png'); sysMsg('🗺️ Landkarte (PNG) erzeugt.', true); };
