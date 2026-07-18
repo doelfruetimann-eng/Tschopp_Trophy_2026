@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projekt-Portfolio · Prozesswand</title>
+<style>
+:root { --bg:#eef1f4; --panel:#fff; --line:#d7dce2; --text:#26303c; --muted:#6b7a8d; --accent:#1f5fae; --rot:#b3362b; --gelb:#c98a00; --gruen:#2f8a4c; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif; }
+header { background:var(--panel); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+h1 { font-size:17px; margin:0; }
+header .sub { font-size:12px; color:var(--muted); }
+button { font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--line); border-radius:7px; background:#fff; padding:7px 12px; }
+button.go { background:var(--accent); color:#fff; border:0; }
+button.del { color:var(--rot); }
+input { font:inherit; font-size:12.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; }
+main { max-width:1080px; margin:0 auto; padding:18px 20px 40px; }
+.addbox { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.addbox input[name=nm] { width:200px; } .addbox input[name=url] { flex:1; min-width:260px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+.card h2 { font-size:15px; margin:0 0 2px; display:flex; align-items:center; gap:8px; }
+.amp { width:13px; height:13px; border-radius:50%; flex:none; box-shadow:0 0 0 3px rgba(0,0,0,.05); }
+.amp.gruen { background:var(--gruen); } .amp.gelb { background:var(--gelb); } .amp.rot { background:var(--rot); } .amp.grau { background:#b8c0ca; }
+.stand { font-size:11px; color:var(--muted); margin-bottom:8px; }
+.ms { margin:6px 0; }
+.chip { display:inline-block; margin:2px 4px 2px 0; border-radius:9px; padding:2px 9px; font-size:11.5px; font-weight:700; background:#eef1f5; color:#666; }
+.chip.ok { background:#dff0e2; color:var(--gruen); }
+.pbar { height:9px; background:#e7ebf0; border-radius:5px; overflow:hidden; margin:3px 0 8px; }
+.pbar div { height:100%; background:var(--gruen); }
+.tor { font-size:12.5px; margin:6px 0; } .tor b { color:var(--accent); }
+.warte { font-size:12px; margin:4px 0 0; padding-left:18px; }
+.warte li { margin:2px 0; }
+.err { font-size:12px; color:var(--rot); }
+.meta { display:flex; gap:8px; margin-top:10px; }
+.leer { color:var(--muted); font-size:13px; background:var(--panel); border:1px dashed var(--line); border-radius:10px; padding:22px; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Projekt-Portfolio</h1>
+  <span class="sub">liest die status.json aller Projekte · Ampel: grün = läuft, gelb = wartet auf dich, rot = blockiert</span>
+  <span style="flex:1"></span>
+  <button class="go" id="refresh">&#8635; Alle aktualisieren</button>
+  <button onclick="location.href='index.html'">&larr; Zur Prozesswand</button>
+</header>
+<main>
+  <div class="addbox">
+    <b style="font-size:13px">Projekt hinzufügen:</b>
+    <input name="nm" id="nm" placeholder="Name, z.B. Screenshot-Brain">
+    <input name="url" id="url" placeholder="https://raw.githubusercontent.com/…/status.json">
+    <button class="go" id="add">+ Aufnehmen</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="leer" id="leer" style="display:none">Noch keine Projekte. Oben Name und die Raw-URL der status.json eintragen –<br>die URL findest du in GitHub über den Knopf «Raw» auf der Datei status.json.</div>
+</main>
+<script>
+const KEY = 'pw-portfolio';
+let list = [];
+try { list = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { list = []; }
+const results = {};
+
+function saveList() { localStorage.setItem(KEY, JSON.stringify(list)); }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function ampel(d) {
+  if (!d) return 'grau';
+  const ph = Array.isArray(d.phasen) ? d.phasen : [];
+  if (ph.some(p => (+p.blockiert || 0) > 0)) return 'rot';
+  if ((Array.isArray(d.wartet_auf_input) && d.wartet_auf_input.length)) return 'gelb';
+  const off = ph.reduce((t, p) => t + (+p.offen || 0), 0);
+  return off === 0 && ph.length ? 'gruen' : (ph.length ? 'gelb' : 'grau');
+}
+
+function renderCard(p, i) {
+  const d = results[p.url], err = d && d.__err;
+  const data = err ? null : d;
+  const a = ampel(data);
+  let h = '<div class="card"><h2><span class="amp ' + a + '"></span>' + esc(p.name) + '</h2>';
+  if (err) h += '<div class="err">Konnte status.json nicht laden: ' + esc(err) + '</div>';
+  else if (!data) h += '<div class="stand">… lädt …</div>';
+  else {
+    h += '<div class="stand">Stand: ' + esc(String(data.stand || '–').replace('T', ' ').slice(0, 16)) + '</div>';
+    const ms = data.meilensteine || {};
+    const mk = Object.keys(ms);
+    if (mk.length) h += '<div class="ms">' + mk.map(k => '<span class="chip' + (String(ms[k]) === 'erreicht' ? ' ok' : '') + '">' + esc(k) + ': ' + esc(String(ms[k])) + '</span>').join('') + '</div>';
+    const ph = Array.isArray(data.phasen) ? data.phasen : [];
+    const done = ph.reduce((t, x) => t + (+x.erledigt || 0), 0);
+    const tot = ph.reduce((t, x) => t + (+x.erledigt || 0) + (+x.offen || 0) + (+x.blockiert || 0), 0);
+    const blk = ph.reduce((t, x) => t + (+x.blockiert || 0), 0);
+    h += '<div style="font-size:12px">' + done + ' von ' + tot + ' Tasks erledigt' + (blk ? ' · <b style="color:var(--rot)">' + blk + ' blockiert</b>' : '') + '</div>';
+    h += '<div class="pbar"><div style="width:' + (tot ? Math.round(done / tot * 100) : 0) + '%"></div></div>';
+    if (data.naechster_entscheid) h += '<div class="tor">&#9670; <b>Nächster Entscheid:</b> ' + esc(String(data.naechster_entscheid)) + '</div>';
+    const w = Array.isArray(data.wartet_auf_input) ? data.wartet_auf_input : [];
+    if (w.length) h += '<div style="font-size:12.5px;margin-top:4px"><b>Wartet auf dich (' + w.length + '):</b></div><ul class="warte">' + w.slice(0, 3).map(x => '<li>' + esc(String(x)) + '</li>').join('') + '</ul>' + (w.length > 3 ? '<div style="font-size:11px;color:var(--muted)">+ ' + (w.length - 3) + ' weitere</div>' : '');
+  }
+  h += '<div class="meta"><button data-re="' + i + '">&#8635;</button><span style="flex:1"></span><button class="del" data-del="' + i + '">Entfernen</button></div></div>';
+  return h;
+}
+
+function render() {
+  const g = document.getElementById('grid');
+  g.innerHTML = list.map(renderCard).join('');
+  document.getElementById('leer').style.display = list.length ? 'none' : 'block';
+  g.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    if (!b.dataset.arm) { b.dataset.arm = '1'; b.textContent = 'Wirklich?'; return; }
+    list.splice(+b.dataset.del, 1); saveList(); render();
+  });
+  g.querySelectorAll('[data-re]').forEach(b => b.onclick = () => load(list[+b.dataset.re]));
+}
+
+async function load(p) {
+  if (!p) return;
+  try {
+    const r = await fetch(p.url + (p.url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    results[p.url] = await r.json();
+  } catch (e) { results[p.url] = { __err: e.message }; }
+  render();
+}
+function loadAll() { list.forEach(load); render(); }
+
+document.getElementById('add').onclick = () => {
+  const nm = document.getElementById('nm').value.trim();
+  const url = document.getElementById('url').value.trim();
+  if (!nm || !url) return;
+  list.push({ name: nm, url });
+  saveList();
+  document.getElementById('nm').value = ''; document.getElementById('url').value = '';
+  loadAll();
+};
+document.getElementById('refresh').onclick = loadAll;
+loadAll();
+</script>
+</body>
+</html>

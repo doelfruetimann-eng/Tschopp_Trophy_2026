@@ -241,6 +241,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
   <h1>OSTO/SYMA Prozesswand</h1>
   <button id="dashBtn" class="primary">Dashboard</button>
   <button id="guideBtn" title="Den Prozess Schritt f&uuml;r Schritt durchgehen">&#9654; Schritt f&uuml;r Schritt</button>
+  <button id="wegBtn" title="Was m&ouml;chtest du tun? Erst ausw&auml;hlen, dann erkl&auml;rt die Wand wof&uuml;r und wie">&#10067; Wegweiser</button>
   <select id="boardSelect" title="Prozesswand wählen"></select>
   <button id="boardMenu" title="Wände verwalten">W&auml;nde&hellip;</button>
   <span class="sub">Phase = System-Ei &middot; Doppelklick = Post-it &middot; Rad = links/rechts &middot; <b id="verTag"></b></span>
@@ -324,7 +325,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V34';
+const APP_VERSION = 'V35';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -377,6 +378,8 @@ function uid(p) { return (p||'i') + Date.now().toString(36) + Math.random().toSt
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function clamp(v,a,b) { return Math.max(a, Math.min(b, v)); }
 function activeState() { return previewState || state; }
+function fmtDue(d) { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : (d || ''); }
+function isOverdue(d) { return !!d && d < new Date().toISOString().slice(0, 10); }
 
 function normalizeState(d) {
   const s = {
@@ -490,8 +493,10 @@ function render() {
   s.milestones.forEach(m => {
     const x = LABEL_W + clamp(m.x, 0, W);
     const short = (m.label || '').split(/\s[–-]\sKriterien/)[0];
+    const late = isOverdue(m.due);
+    const dueTxt = m.due ? ' &middot; ' + fmtDue(m.due) + (late ? ' &#9888;' : '') : '';
     h += '<div class="ms-line" style="left:' + x + 'px;top:' + HEADER_H + 'px;height:' + H + 'px"></div>';
-    h += '<div class="ms-flag" data-mid="' + m.id + '" style="left:' + x + 'px;top:' + flagTop + 'px" title="' + esc(m.label) + '">&#9670; ' + esc(short) + '</div>';
+    h += '<div class="ms-flag" data-mid="' + m.id + '" style="left:' + x + 'px;top:' + flagTop + 'px' + (late ? ';background:#a02020' : '') + '" title="' + esc(m.label) + (m.due ? ' – Zieldatum ' + fmtDue(m.due) : '') + '">&#9670; ' + esc(short) + dueTxt + '</div>';
   });
 
   s.postits.forEach(p => {
@@ -879,11 +884,105 @@ function openPhaseModal(i) {
 
 function openMilestoneModal(id) {
   const m = state.milestones.find(x => x.id === id); if (!m) return;
-  openModal('<h3>Meilenstein</h3><label>Bezeichnung</label><input type="text" id="mLabel" value="' + esc(m.label) + '"><div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
-  document.getElementById('mSave').onclick = () => { m.label = document.getElementById('mLabel').value || m.label; save(); render(); closeModal(); };
+  openModal('<h3>Meilenstein / Entscheid-Tor</h3><label>Bezeichnung</label><input type="text" id="mLabel" value="' + esc(m.label) + '">'
+    + '<label style="margin-top:10px">Zieldatum <span style="font-weight:400;text-transform:none">(optional &ndash; &uuml;berf&auml;llige Tore werden rot markiert)</span></label>'
+    + '<input type="date" id="mDue" value="' + esc(m.due || '') + '" style="font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">'
+    + '<div class="btnrow"><button class="go" id="mSave">Speichern</button><button id="mCancel">Abbrechen</button><button class="del" id="mDel">L&ouml;schen</button></div>');
+  document.getElementById('mSave').onclick = () => {
+    m.label = document.getElementById('mLabel').value || m.label;
+    const d = document.getElementById('mDue').value;
+    if (d) m.due = d; else delete m.due;
+    save(); render(); closeModal();
+  };
   document.getElementById('mCancel').onclick = closeModal;
   document.getElementById('mDel').onclick = () => { state.milestones = state.milestones.filter(x => x.id !== id); save(); render(); closeModal(); };
 }
+
+/* ================================================================
+   WEGWEISER – erst wählen, was man will; dann Erklärung + Absprung
+   ================================================================ */
+const WEGWEISER = [
+  { icon: '🚀', t: 'Neues Projekt starten', kurz: 'Ziel setzen – der KI-Schwarm baut den Entwurf',
+    wofuer: 'Aus einer spontanen Idee wird in wenigen Minuten eine komplette, prüfbare Projektstruktur mit Phasen, Schritten und Entscheid-Toren.',
+    schritte: ['Ziel unten in die Zielleiste schreiben (was genau, messbar, bis wann)',
+      'Rechts unten «🤖 KI-Struktur» klicken',
+      'Zeitrahmen und Kontext eintragen, Detailtiefe wählen',
+      'Bei exakten Vorgaben: «Vorgaben wörtlich übernehmen» ankreuzen',
+      '«Schwarm starten» – dann Vorschau prüfen: Ersetzen, Ergänzen oder Verwerfen'],
+    tipp: 'Für Projekte, die du im Chat mit Claude schon durchdacht hast, ist der Import (📥) der bessere Weg – da wird nichts umformuliert.',
+    aktion: 'KI-Struktur jetzt öffnen', run: () => document.getElementById('swarmBtn').click() },
+  { icon: '📥', t: 'Projekt aus dem Chat einlesen', kurz: 'Fertige Strukturdatei (JSON) importieren – mit Vorschau',
+    wofuer: 'Du hast ein Projekt im Chat erarbeitet und Claude hat dir eine Datei import-….json erstellt. Die Wand übernimmt sie eins zu eins – ohne KI, ohne Umformulieren.',
+    schritte: ['Im Chat /prozesswand nutzen – du erhältst die Datei import-….json (liegt danach im Downloads-Ordner)',
+      'Hier oben «Import» klicken und die Datei auswählen',
+      'Vorschau prüfen: Als neue Wand, Ersetzen, Ergänzen oder Verwerfen',
+      'Das SMART-Ziel von Hand in die Zielleiste einfügen'],
+    tipp: 'Der Import verändert die Zielleiste nie – die gehört immer dir.',
+    aktion: 'Import öffnen', run: () => document.getElementById('importBtn').click() },
+  { icon: '🧭', t: 'Projekt steuern', kurz: 'Dashboard: nächstes Tor · was wartet auf dich · Fortschritt',
+    wofuer: 'Der tägliche Blick: Wo steht das Projekt, wo ist das nächste Entscheid-Tor, was braucht dich persönlich? Maximal drei Handlungsaufforderungen aufs Mal.',
+    schritte: ['Oben links «Dashboard» klicken',
+      '«Steuerung» zeigt das nächste Entscheid-Tor und die Liste «Wartet auf dich»',
+      'Im Kanban Karten anklicken = Status weiterschalten',
+      'Optional: Raw-URL deiner status.json eintragen – dann fliesst der Stand aus GitHub automatisch ein'],
+    tipp: 'Tore auf der Wand anklicken und ein Zieldatum setzen – überfällige Tore werden rot.',
+    aktion: 'Dashboard öffnen', run: () => openDash() },
+  { icon: '🤝', t: 'Arbeit an die KI delegieren', kurz: 'Tasks exportieren: pro Schritt ein fertiger KI-Auftrag',
+    wofuer: 'Jeder Schritt der Handlungsebene wird eine eigene Auftragsdatei mit Akzeptanzkriterien – für Claude Code, ChatGPT, Gemini und Co. Die Wand stoppt nur an den Toren, wo du entscheidest.',
+    schritte: ['Post-it doppelklicken und Task-Typ setzen: auto (KI macht selbständig), freigabe (wirkt erst nach deinem Ok), input (braucht dich)',
+      '«Dokumente» → «Tasks (.zip)» klicken',
+      'Den Ordner tasks/ ins GitHub-Repo legen – Skript und Anleitung liegen im ZIP bei',
+      'Das Skript erzeugt die status.json; deren Raw-URL trägst du im Dashboard ein'],
+    tipp: 'Harte Regel: Mails, Publikationen, Käufe und Löschungen brauchen immer deine Freigabe – auch wenn «auto» eingestellt ist.',
+    aktion: 'Dokumente/Tasks öffnen', run: () => document.getElementById('docsBtn').click() },
+  { icon: '📄', t: 'Dokumente erzeugen', kurz: 'Auftragsbeschrieb · Termine · Kosten · Landkarte – in deinem CI',
+    wofuer: 'Für Gremien und Auftraggeber: fertige Word- und Excel-Dokumente direkt aus den Karten – ohne KI-Aufruf, jederzeit reproduzierbar, nie veraltet.',
+    schritte: ['«Dokumente» klicken',
+      'Word: Auftragsbeschrieb, Beschaffungsantrag · Excel: Terminprogramm, Kostenvoranschlag',
+      'Landkarte (SVG/PNG) für Präsentation und Druck',
+      'Referenzdokument (SSOT) eintragen – erscheint in jedem Export als «Bei Widerspruch gilt: …»'],
+    tipp: 'Leere Felder werden weggelassen. «Erledigt» mit offenen Teilaufgaben wird im Export ehrlich gewarnt.',
+    aktion: 'Dokumente öffnen', run: () => document.getElementById('docsBtn').click() },
+  { icon: '▶️', t: 'Die Wand verstehen', kurz: 'Schritt für Schritt durch alle Karten geführt',
+    wofuer: 'Die Wand geht alle Post-its in logischer Reihenfolge durch und erklärt jeden Schritt – ideal zum Einarbeiten oder für die Moderation.',
+    schritte: ['Oben «▶ Schritt für Schritt» klicken',
+      'Mit ← und → durch die Karten blättern – die aktuelle Karte wird auf der Wand markiert',
+      'Die KI-Erklärung wird pro Karte gespeichert',
+      'Zu jedem Schritt gibt es einen kopierbaren Umsetzungs-Prompt'],
+    tipp: '',
+    aktion: 'Begleiter starten', run: () => document.getElementById('guideBtn').click() },
+  { icon: '🔍', t: 'Eine Phase vertiefen', kurz: 'Lupe: System-Ei, Aufgaben, Risiken, KI-Hilfe pro Phase',
+    wofuer: 'Eine einzelne Phase im Detail planen: Ziel, Input und Output (System-Ei), Aufgaben mit Status, Risiken – mit KI-Unterstützung direkt im Fenster.',
+    schritte: ['In der Kopfzeile einer Phase auf 🔍 klicken (oder im Dashboard auf eine Phasen-Zeile)',
+      'Im System-Ei Ziel, Input und Output ausfüllen',
+      'Aufgaben und Risiken ergänzen; Status per Klick weiterschalten',
+      '«Weiter →» übergibt den Output als Input an die nächste Phase'],
+    tipp: '',
+    aktion: 'Lupe öffnen (Phase 1)', run: () => { if (state.phases.length) openLupe(0); } }
+];
+function openWegweiser(sel) {
+  if (previewState) return;
+  if (sel == null) {
+    openModal('<h3>&#10067; Wegweiser &ndash; was m&ouml;chtest du tun?</h3>'
+      + '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Ausw&auml;hlen &ndash; dann erkl&auml;rt dir die Wand, wof&uuml;r es gut ist und wie du klickst.</p>'
+      + WEGWEISER.map((w, i) => '<button class="weg-item" data-i="' + i + '" style="display:block;width:100%;text-align:left;margin:4px 0;padding:9px 12px;font:inherit;font-size:13.5px;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff">'
+        + w.icon + ' <b>' + w.t + '</b><br><span style="font-size:11.5px;color:var(--muted)">' + w.kurz + '</span></button>').join('')
+      + '<div class="btnrow"><button id="mCancel">Schliessen</button></div>');
+    document.getElementById('mCancel').onclick = closeModal;
+    modalBox.querySelectorAll('.weg-item').forEach(b => b.onclick = () => openWegweiser(+b.dataset.i));
+    return;
+  }
+  const w = WEGWEISER[sel];
+  openModal('<h3>' + w.icon + ' ' + w.t + '</h3>'
+    + '<label>Wof&uuml;r ist das?</label><p style="font-size:13px;margin:2px 0 8px">' + w.wofuer + '</p>'
+    + '<label>So geht es</label><ol style="margin:4px 0 8px 18px;padding:0;font-size:13px">' + w.schritte.map(s => '<li style="margin:3px 0">' + s + '</li>').join('') + '</ol>'
+    + (w.tipp ? '<div style="font-size:12px;color:var(--muted);background:#f4f6f8;border-radius:8px;padding:8px 10px">💡 ' + w.tipp + '</div>' : '')
+    + '<div class="btnrow"><button class="go" id="wegGo">' + w.aktion + '</button><button id="wegBack">&larr; Zur Auswahl</button><button id="mCancel">Schliessen</button></div>');
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('wegBack').onclick = () => openWegweiser(null);
+  document.getElementById('wegGo').onclick = () => { closeModal(); w.run(); };
+}
+document.getElementById('wegBtn').onclick = () => openWegweiser(null);
 
 function openLaneModal(key) {
   const l = LANES.find(x => x.key === key); if (!l) return;
@@ -1897,6 +1996,118 @@ function buildTasks(sel) {
     return { name: t + '-' + slug(cleanTxt(c.text)) + '.md', data: L.join('\n') };
   });
 }
+/* Repo-Skript (Pflichtenheft D3): baut status.json aus den Task-Frontmattern – liegt jedem Tasks-ZIP bei */
+const TASKS_SCRIPT = [
+'#!/usr/bin/env python3',
+'# -*- coding: utf-8 -*-',
+'# Baut status.json aus den Task-Dateien in tasks/ (Prozesswand, Pflichtenheft D3).',
+'# Aufruf im Repo-Hauptordner:  python3 build_status.py',
+'# Optional: status.overrides.json mit {"meilensteine": {...}, "naechster_entscheid": "..."}',
+'import json, os, datetime',
+'',
+'TASKS, OUT, OVR = "tasks", "status.json", "status.overrides.json"',
+'tasks = []',
+'for fn in sorted(os.listdir(TASKS)):',
+'    if not fn.endswith(".md"):',
+'        continue',
+'    text = open(os.path.join(TASKS, fn), encoding="utf-8").read()',
+'    if not text.startswith("---"):',
+'        continue',
+'    parts = text.split("---", 2)',
+'    if len(parts) < 3:',
+'        continue',
+'    fm = {}',
+'    for line in parts[1].splitlines():',
+'        if ":" in line:',
+'            k, v = line.split(":", 1)',
+'            fm[k.strip()] = v.strip()',
+'    body = parts[2]',
+'    # Falls das ausfuehrende LLM im Abschnitt "## Ergebnis" einen Status eingetragen hat, gilt dieser',
+'    idx = body.lower().find("## ergebnis")',
+'    if idx >= 0:',
+'        for line in body[idx:idx + 400].splitlines():',
+'            ls = line.strip().lower()',
+'            if ls.startswith("status:"):',
+'                val = ls.split(":", 1)[1].strip()',
+'                if val in ("offen", "in_arbeit", "erledigt", "blockiert"):',
+'                    fm["status"] = val',
+'                break',
+'    tasks.append(fm)',
+'',
+'phasen, wartet = {}, []',
+'for t in tasks:',
+'    try:',
+'        p = int(t.get("phase", "0"))',
+'    except ValueError:',
+'        p = 0',
+'    ph = phasen.setdefault(p, {"nr": p, "erledigt": 0, "offen": 0, "blockiert": 0})',
+'    s = t.get("status", "offen")',
+'    if s == "erledigt":',
+'        ph["erledigt"] += 1',
+'    elif s == "blockiert":',
+'        ph["blockiert"] += 1',
+'    else:',
+'        ph["offen"] += 1',
+'    if s != "erledigt" and t.get("typ") in ("input", "freigabe"):',
+'        wartet.append((t.get("id", "") + " " + t.get("titel", "")).strip())',
+'',
+'out = {',
+'    "projekt": tasks[0].get("projekt", "projekt") if tasks else "projekt",',
+'    "meilensteine": {},',
+'    "phasen": [phasen[k] for k in sorted(phasen)],',
+'    "naechster_entscheid": "",',
+'    "wartet_auf_input": wartet,',
+'}',
+'if os.path.exists(OVR):',
+'    out.update(json.load(open(OVR, encoding="utf-8")))',
+'out["stand"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")',
+'json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=2)',
+'print("status.json geschrieben:", len(tasks), "Tasks,", len(wartet), "warten auf dich")'
+].join('\n');
+const TASKS_README = [
+'# Tasks der Prozesswand – so wird daraus die status.json',
+'',
+'Dieses ZIP kommt aus der OSTO/SYMA-Prozesswand. Inhalt:',
+'- tasks/  – pro Schritt eine Auftragsdatei (MD mit Frontmatter) für ein LLM',
+'- build_status.py – baut aus den Task-Dateien die status.json',
+'',
+'## Einrichten (einmalig)',
+'1. Den Ordner tasks/ und build_status.py ins GitHub-Repo legen (Hauptordner)',
+'2. python3 build_status.py ausführen – erzeugt status.json',
+'3. Beides committen und pushen',
+'4. In der Wand (Dashboard) die Raw-URL eintragen:',
+'   https://raw.githubusercontent.com/BENUTZER/REPO/BRANCH/status.json',
+'',
+'## Automatisch bei jedem Push (GitHub Action, optional)',
+'Datei .github/workflows/status.yml anlegen:',
+'',
+'    name: status',
+'    on:',
+'      push:',
+'        paths: ["tasks/**"]',
+'    jobs:',
+'      build:',
+'        runs-on: ubuntu-latest',
+'        permissions:',
+'          contents: write',
+'        steps:',
+'          - uses: actions/checkout@v4',
+'          - run: python3 build_status.py',
+'          - run: |',
+'              git config user.name status-bot',
+'              git config user.email bot@users.noreply.github.com',
+'              git add status.json',
+'              git commit -m "status.json aktualisieren" || exit 0',
+'              git push',
+'',
+'## Regeln',
+'- Das ausführende LLM trägt sein Resultat im Abschnitt «## Ergebnis» ein',
+'  (status: erledigt / blockiert / in_arbeit) – das Skript liest zuerst diesen Status.',
+'- Meilensteine und «nächster Entscheid» pflegst du in status.overrides.json,',
+'  z.B. {"meilensteine": {"M1": "erreicht"}, "naechster_entscheid": "M2 Go/No-Go, Woche 3"}',
+'- Privacy: Ins Repo gehören nur Code, Dokumente, Task-Titel und Status –',
+'  nie Screenshots, OCR-Inhalte oder Inhaltsauszüge.'
+].join('\n');
 /* Minimaler ZIP-Schreiber (nur Store, UTF-8-Namen) – keine externe Bibliothek nötig */
 function makeZip(files) {
   const enc = new TextEncoder();
@@ -2033,7 +2244,10 @@ document.getElementById('docsBtn').onclick = () => {
     const sel = v === '' ? null : +v;
     const files = buildTasks(sel);
     if (!files.length) { sysMsg('Keine Schritte auf der Handlungsebene – nichts zu exportieren.', true); return; }
-    const blob = makeZip(files.map(f => ({ name: 'tasks/' + f.name, data: f.data })));
+    const zf = files.map(f => ({ name: 'tasks/' + f.name, data: f.data }));
+    zf.push({ name: 'build_status.py', data: TASKS_SCRIPT });
+    zf.push({ name: 'README-tasks.md', data: TASKS_README });
+    const blob = makeZip(zf);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = ('tasks - ' + boardName() + (sel === null ? '' : ' - Phase ' + (sel + 1))).replace(/[\\/:*?"<>|]/g, '-') + '.zip';
@@ -2262,7 +2476,7 @@ function nextGate() {
   }
   for (let i = from; i < state.phases.length; i++) {
     const g = gateOfPhase(i);
-    if (g) return { label: g.label.split(/\s[–-]\sKriterien/)[0], phase: i };
+    if (g) return { label: g.label.split(/\s[–-]\sKriterien/)[0], phase: i, due: g.due || '' };
   }
   return null;
 }
@@ -2308,7 +2522,9 @@ function renderDash() {
   h += '<div class="dash-sec"><h3>Steuerung <span style="font-weight:400;color:var(--muted);font-size:11px">autonom bis zum n&auml;chsten Tor</span></h3>'
     + '<div style="font-size:13px;margin:4px 0"><b>N&auml;chstes Entscheid-Tor:</b> '
     + (ghStatus && ghStatus.naechster_entscheid ? esc(String(ghStatus.naechster_entscheid))
-      : ng ? '&#9670; ' + esc(ng.label.slice(0, 90)) + ' (Ende Phase ' + (ng.phase + 1) + ')' : '&ndash; keines definiert &ndash;') + '</div>';
+      : ng ? '&#9670; ' + esc(ng.label.slice(0, 90)) + ' (Ende Phase ' + (ng.phase + 1) + ')'
+        + (ng.due ? ' &middot; bis ' + fmtDue(ng.due) + (isOverdue(ng.due) ? ' <span style="color:#a33;font-weight:700">&#9888; &uuml;berf&auml;llig</span>' : '') : '')
+      : '&ndash; keines definiert &ndash;') + '</div>';
   if (wd.length) {
     h += '<div style="font-size:13px;margin:6px 0 2px"><b>Wartet auf dich</b> (' + wd.length + '):</div><ul style="margin:2px 0 4px 18px;padding:0">';
     wd.slice(0, 3).forEach(x => {
@@ -2325,7 +2541,8 @@ function renderDash() {
   /* D2: status.json aus GitHub – Raw-URL, Polling beim Öffnen + Refresh-Knopf */
   h += '<div class="dash-sec"><h3>Projekt-Status aus GitHub (status.json) <span style="font-weight:400;color:var(--muted);font-size:11px">die Wand liest nur &ndash; sie schreibt nichts</span></h3>'
     + '<div style="display:flex;gap:6px;margin:4px 0"><input type="text" id="ghUrl" value="' + esc(state.statusUrl || '') + '" placeholder="https://raw.githubusercontent.com/&hellip;/status.json" style="flex:1;font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">'
-    + '<button id="ghRefresh" style="font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:0;border-radius:6px;background:var(--accent);color:#fff;padding:6px 12px">&#8635; Aktualisieren</button></div>';
+    + '<button id="ghRefresh" style="font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:0;border-radius:6px;background:var(--accent);color:#fff;padding:6px 12px">&#8635; Aktualisieren</button>'
+    + '<button id="ghPortfolio" title="&Uuml;bersicht &uuml;ber alle Projekte (liest mehrere status.json)" style="font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;background:#eef4fb;padding:6px 12px">Portfolio</button></div>';
   if (ghStatusErr && (state.statusUrl || '').trim()) {
     h += '<div style="font-size:12px;color:#a33">Konnte status.json nicht laden: ' + esc(ghStatusErr) + '</div>';
   }
@@ -2405,6 +2622,8 @@ function renderDash() {
   if (gu) gu.onchange = () => { state.statusUrl = gu.value.trim(); save(); fetchGhStatus(); };
   const gr = document.getElementById('ghRefresh');
   if (gr) gr.onclick = () => fetchGhStatus();
+  const gp = document.getElementById('ghPortfolio');
+  if (gp) gp.onclick = () => window.open('portfolio.html', '_blank');
 }
 document.getElementById('dashBody').addEventListener('click', e => {
   const tdot = e.target.closest('[data-tcid]');
