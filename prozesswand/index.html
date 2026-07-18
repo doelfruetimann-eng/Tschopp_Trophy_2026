@@ -324,7 +324,7 @@ table.ph-tab { width:100%; border-collapse:collapse; }
 <script>
 "use strict";
 
-const APP_VERSION = 'V33';
+const APP_VERSION = 'V34';
 
 /* ====== SUPABASE ====== */
 const SUPABASE_URL = 'https://bvbjxofdcugpfsccwlzv.supabase.co';
@@ -389,7 +389,8 @@ function normalizeState(d) {
     kiLog: Array.isArray(d.kiLog) ? d.kiLog : [],
     kiConvo: Array.isArray(d.kiConvo) ? d.kiConvo : [],
     solo: d.solo === true,
-    ssot: typeof d.ssot === 'string' ? d.ssot : ''
+    ssot: typeof d.ssot === 'string' ? d.ssot : '',
+    statusUrl: typeof d.statusUrl === 'string' ? d.statusUrl : ''
   };
   s.phases.forEach(p => { if (typeof p.w !== 'number' || p.w < 80) p.w = PHASE_W; });
   return s;
@@ -496,7 +497,9 @@ function render() {
   s.postits.forEach(p => {
     const st = p.status || 'offen';
     const tds = Array.isArray(p.todos) && p.todos.length ? '<span class="todoTag">&#9745; ' + p.todos.filter(t => t.done).length + '/' + p.todos.length + '</span>' : '';
-    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + tds + '</div>';
+    const typTag = taskTyp(p) === 'freigabe' ? '<span class="todoTag" title="Freigabe n&ouml;tig" style="color:#a05c12">&#9995;</span>'
+      : taskTyp(p) === 'input' ? '<span class="todoTag" title="braucht menschlichen Input" style="color:#6b4fa0">&#128100;</span>' : '';
+    h += '<div class="postit st-' + st + (connectSrc === p.id ? ' sel' : '') + '" data-pid="' + p.id + '" style="left:' + (LABEL_W + p.x) + 'px;top:' + (HEADER_H + p.y) + 'px;background:' + (p.color || PALETTE[0]) + '"><span class="dot ' + st + '"></span>' + esc(p.text) + tds + typTag + '</div>';
   });
 
   h += '<svg id="conns" width="' + (LABEL_W + W) + '" height="' + (HEADER_H + H) + '"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f5fae"/></marker></defs>';
@@ -704,6 +707,13 @@ function openPostitModal(id) {
   openModal('<h3>Post-it &middot; Phase ' + (pi + 1) + ' &middot; ' + esc(laneTitle(LANES[LANE_KEYS.indexOf(laneKeyOfY(card.y))] || LANES[0])) + '</h3>'
     + '<label>Text</label><textarea id="mText" rows="3">' + esc(card.text) + '</textarea>'
     + '<label>Farbe</label><div class="swatches">' + sw + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
+    + '<div style="flex:1"><label>Task-Typ</label><select id="mTyp" style="width:100%;font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">'
+    + '<option value="auto"' + ((card.typ || 'auto') === 'auto' ? ' selected' : '') + '>auto &ndash; KI erledigt selbst&auml;ndig</option>'
+    + '<option value="freigabe"' + (card.typ === 'freigabe' ? ' selected' : '') + '>freigabe &ndash; wirkt erst nach deiner Freigabe</option>'
+    + '<option value="input"' + (card.typ === 'input' ? ' selected' : '') + '>input &ndash; braucht menschlichen Input</option></select></div>'
+    + '<div style="flex:1"><label>Owner (wer f&uuml;hrt aus)</label><input type="text" id="mOwner" value="' + esc(card.owner || '') + '" placeholder="claude_code, chatgpt, doelf &hellip;"></div></div>'
+    + '<div style="font-size:10.5px;color:var(--muted);margin-top:3px">Feste Regel (nicht abschaltbar): Entscheid-Tore, L&ouml;schungen und externe Aktionen (Mails, Publikationen, K&auml;ufe) brauchen immer eine Freigabe &ndash; der Task-Export erzwingt das.</div>'
     + (card.doc ? '<div class="btnrow" style="margin-top:8px"><button id="mDocDl">&#128229; Gespeicherte Ausarbeitung (.doc)</button></div>' : '')
     + '<label style="margin-top:12px">Aufgaben zu diesem Post-it <span style="font-weight:400;text-transform:none">(erscheinen im Dashboard unter &laquo;Prozess-Aufgaben&raquo;)</span></label>'
     + '<div id="mTodos">' + todosHtml() + '</div>'
@@ -811,6 +821,8 @@ function openPostitModal(id) {
   document.getElementById('mSave').onclick = () => {
     card.text = document.getElementById('mText').value;
     const sel = modalBox.querySelector('.swatch.sel'); if (sel) card.color = sel.dataset.c;
+    const tySel = document.getElementById('mTyp'); if (tySel) card.typ = tySel.value;
+    const owEl = document.getElementById('mOwner'); if (owEl) card.owner = owEl.value.trim();
     save(); render(); closeModal();
   };
   document.getElementById('mCancel').onclick = closeModal;
@@ -910,13 +922,30 @@ document.getElementById('exportBtn').onclick = () => {
   a.href = URL.createObjectURL(blob); a.download = 'prozesswand-export.json'; a.click();
   URL.revokeObjectURL(a.href);
 };
-document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importBtn').onclick = () => { if (previewState) return; document.getElementById('importFile').click(); };
 document.getElementById('importFile').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = () => {
-    try { state = normalizeState(JSON.parse(r.result)); save(); goalInput.value = state.goal || ''; render(); sysMsg('Import erfolgreich.'); }
-    catch (err) { sysMsg('Import fehlgeschlagen: ' + err.message); }
+    try {
+      const raw = JSON.parse(r.result);
+      /* akzeptiert: Roh-Export der Wand, {state:…} oder eine ganze Sammlung {boards:[…]} */
+      const src = raw && raw.state ? raw.state
+        : (raw && Array.isArray(raw.boards) && raw.boards.length ? ((raw.boards.find(b => b.id === raw.activeId) || raw.boards[0]).state || {}) : raw);
+      const st = normalizeState(src || {});
+      if (!st.phases.length && !st.postits.length) throw new Error('keine Phasen oder Post-its in der Datei gefunden');
+      /* C2: Die Zielleiste bleibt manuell – Import ersetzt nur die Struktur. Chat-Verlauf bleibt ebenfalls. */
+      st.goal = state.goal;
+      st.kiLog = state.kiLog; st.kiConvo = state.kiConvo;
+      st.solo = state.solo;
+      if (!st.ssot) st.ssot = state.ssot;
+      if (!st.statusUrl) st.statusUrl = state.statusUrl;
+      previewState = st; previewMeta = { import: true, ziel: f.name.replace(/\.json$/i, '') };
+      document.getElementById('previewBar').style.display = 'flex';
+      render();
+      sysMsg('📥 Import-Vorschau «' + f.name + '»: ' + st.phases.length + ' Phasen, ' + st.postits.length + ' Post-its, ' + st.milestones.length + ' Meilensteine/Tore. Oben wählen: Als neue Wand, Ersetzen, Ergänzen oder Verwerfen. Die Zielleiste bleibt unverändert.');
+    }
+    catch (err) { sysMsg('Import fehlgeschlagen: ' + err.message, true); }
   };
   r.readAsText(f); e.target.value = '';
 });
@@ -943,11 +972,12 @@ document.getElementById('undoBtn').onclick = () => {
 
 /* ---------- KI: Schlüssel & API ---------- */
 const KEY_STORE = 'pw-anthropic-key';
+const DEFAULT_KEY = '';
 function getKey() {
   let k = localStorage.getItem(KEY_STORE);
   if (k) return k;
   if (collection && collection.apiKey) { localStorage.setItem(KEY_STORE, collection.apiKey); return collection.apiKey; }
-
+  if (DEFAULT_KEY) { localStorage.setItem(KEY_STORE, DEFAULT_KEY); return DEFAULT_KEY; }
   for (const alt of ['anthropic-key','anthropic-api-key','claude-api-key','osto-api-key']) {
     k = localStorage.getItem(alt);
     if (k) { localStorage.setItem(KEY_STORE, k); return k; }
@@ -1136,17 +1166,20 @@ document.getElementById('swarmBtn').onclick = () => {
     + '<label>Zeitrahmen</label><input type="text" id="swZeit" placeholder="z.B. Januar bis Juni 2027, 6 Monate">'
     + '<label>Kontext / Projektart</label><textarea id="swKontext" rows="3" placeholder="z.B. Umbau Mehrfamilienhaus, Budget 1.2 Mio, Bauherrschaft privat, Bewilligung nötig"></textarea>'
     + '<label>Detailtiefe</label><select id="swTiefe"><option value="grob">grob (Überblick)</option><option value="mittel" selected>mittel</option><option value="fein">fein (detailliert)</option></select>'
+    + '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-weight:400;text-transform:none"><input type="checkbox" id="swVerbatim" style="width:auto"> Vorgaben w&ouml;rtlich &uuml;bernehmen (nichts umformulieren, Fehlendes als [offen] markieren)</label>'
     + '<label style="margin-top:10px">Projekt-Unterlagen einlesen (.md / .txt) &ndash; optional</label>'
     + '<input type="file" id="swMd" multiple accept=".md,.markdown,.txt">'
     + '<div style="font-size:11px;color:var(--muted);margin-top:3px">z.B. CLAUDE.md, Konzept-/Handoff-Dokumente, ADRs &ndash; der Schwarm leitet Phasen und Inhalte direkt daraus ab.</div>'
     + '<div class="btnrow"><button class="go" id="swStart">Schwarm starten</button><button id="mCancel">Abbrechen</button></div>');
   document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('swTiefe').onchange = e => { if (e.target.value === 'fein') document.getElementById('swVerbatim').checked = true; };
   document.getElementById('swStart').onclick = async () => {
     const cfg = {
       ziel: document.getElementById('swZiel').value.trim(),
       zeit: document.getElementById('swZeit').value.trim(),
       kontext: document.getElementById('swKontext').value.trim(),
       tiefe: document.getElementById('swTiefe').value,
+      verbatim: document.getElementById('swVerbatim').checked,
       unterlagen: ''
     };
     if (!cfg.ziel) { document.getElementById('swZiel').focus(); return; }
@@ -1169,7 +1202,7 @@ document.getElementById('swarmBtn').onclick = () => {
 const VERBATIM_REGEL = '\n\nVERBATIM-MODUS (verbindlich): Teilschritte, Zahlen, Methoden, Termine und Phasen-Zuordnungen aus dem Nutzer-Kontext und den Projekt-Unterlagen WÖRTLICH übernehmen. Nichts umformulieren, keine Werte ersetzen oder erfinden, keine eigenen Beispiele einsetzen. Fehlende Angaben als [offen] markieren.';
 async function runSwarm(cfg) {
   const TIEFE_N = { grob: 3, mittel: 4, fein: 6 };
-  const verbatim = cfg.tiefe === 'fein' ? VERBATIM_REGEL : '';
+  const verbatim = (cfg.verbatim || cfg.tiefe === 'fein') ? VERBATIM_REGEL : '';
   try {
     sysMsg('🏛️ Architekt-Agent plant Phasen und Entscheid-Tore …');
     const arch = await agentJSON('architekt',
@@ -1323,7 +1356,7 @@ document.getElementById('pvErgaenzen').onclick = () => {
   undoBackup = JSON.stringify(state);
   const pv = previewState;
   const maxX = canvasW(state) - PI_W - 4;
-  pv.postits.forEach(p => { state.postits.push({ id: p.id, x: clamp(p.x, 0, maxX), y: p.y, text: p.text, color: p.color }); });
+  pv.postits.forEach(p => { const q = Object.assign({}, p); q.x = clamp(q.x, 0, maxX); state.postits.push(q); });
   pv.connections.forEach(c => state.connections.push(c));
   pv.milestones.forEach(m => state.milestones.push({ id: m.id, x: clamp(m.x, 0, canvasW(state) - 4), label: m.label }));
   state.phases.forEach((p, i) => {
@@ -1774,7 +1807,6 @@ function genClaudeAuftrag(sel) {
         L.push((j + 1) + '. ' + cleanTxt(c.text) + '  (Status: ' + stx.label + ')');
         (c.todos || []).forEach(t => L.push('   - [' + (t.done ? 'x' : ' ') + '] ' + t.t + (!solo && t.wer ? ' (zuständig: ' + t.wer + ')' : '')));
         if (c.guide) L.push('   Hinweis: ' + cutAtSentence(stripMd(c.guide).replace(/\n+/g, ' '), 320));
-        L.push('   Erwartetes Ergebnis: ' + LANE_ERGEBNIS.handlung);
       });
       L.push('');
     }
@@ -1809,6 +1841,99 @@ function genClaudeAuftrag(sel) {
   return L.join('\n');
 }
 
+/* ================================================================
+   TASK-EXPORT (Pflichtenheft D) – pro Schritt eine MD-Datei mit
+   Frontmatter; Verpackung als .zip ohne Fremdbibliothek (Store).
+   ================================================================ */
+function slug(t) {
+  return String(t || '').toLowerCase()
+    .replace(/[äöüß]/g, m => ({ 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss' }[m]))
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'task';
+}
+/* F2: harte, nicht konfigurierbare Regel – externe Aktionen und Löschungen sind immer «freigabe» */
+function taskTyp(c) {
+  if (/\b(mail|e-?mail|newsletter|versand|versende|verschick|publizier|veröffentlich|kauf|beschaff|bestell|lösch)/i.test(cleanTxt(c.text || ''))) return 'freigabe';
+  return (c.typ === 'freigabe' || c.typ === 'input') ? c.typ : 'auto';
+}
+function buildTasks(sel) {
+  const tnr = {}, byT = {}, list = [];
+  let n = 0;
+  state.phases.forEach((p, i) => cardsInPhaseLane(i, 'handlung').forEach(c => {
+    n++; const t = 'T-' + String(n).padStart(3, '0');
+    tnr[c.id] = t; byT[t] = c; list.push({ c, i, t });
+  }));
+  const proj = slug(boardName());
+  return list.filter(x => sel === null || x.i === sel).map(x => {
+    const { c, i, t } = x;
+    const deps = state.connections.filter(k => k.to === c.id && tnr[k.from]).map(k => tnr[k.from]);
+    const typ = taskTyp(c);
+    const owner = (c.owner || '').trim() || (typ === 'input' ? 'doelf' : 'claude_code');
+    const st = c.status || 'offen';
+    const blocked = st !== 'erledigt' && deps.some(d => (byT[d].status || 'offen') !== 'erledigt');
+    const status = st === 'erledigt' ? 'erledigt' : blocked ? 'blockiert' : st === 'arbeit' ? 'in_arbeit' : 'offen';
+    const g = gateOfPhase(i);
+    const L = ['---',
+      'id: ' + t,
+      'projekt: ' + proj,
+      'phase: ' + (i + 1),
+      'ebene: handlung',
+      'titel: ' + cleanTxt(c.text).replace(/\s*\n\s*/g, ' ').trim(),
+      'status: ' + status,
+      'typ: ' + typ,
+      'owner: ' + owner];
+    if (deps.length) L.push('abhaengig_von: [' + deps.join(', ') + ']');
+    if (ssot()) L.push('ssot: ' + ssot());
+    L.push('---', '', '## Auftrag');
+    L.push(cleanTxt(c.text).trim() + ' — Projekt «' + boardName() + '», Phase ' + (i + 1) + (state.phases[i].name ? ' (' + state.phases[i].name + ')' : '') + '.');
+    if (c.guide) L.push(cutAtSentence(stripMd(c.guide).replace(/\n+/g, ' '), 400));
+    if (typ === 'freigabe') L.push('Wirkung erst nach Freigabe durch den Projektinhaber: vollständig vorbereiten, nicht ausführen.');
+    if (g) L.push('Entscheid-Tor am Phasenende: ' + g.label.split(/\s[–-]\sKriterien/)[0] + ' (Go/No-Go, Freigabe nötig).');
+    L.push('Privacy-Regel: Ins Repo und in die status.json gehören nur Code, Dokumente, Task-Titel und Status – nie Screenshots, OCR- oder Inhaltsauszüge.');
+    L.push('', '## Akzeptanzkriterien');
+    const tds = (c.todos || []).filter(td => td && td.t);
+    if (tds.length) tds.forEach(td => L.push('- [' + (td.done ? 'x' : ' ') + '] ' + td.t));
+    else L.push('- [ ] Ergebnis liegt als Datei vor und erfüllt den Auftrag');
+    L.push('', '## Ergebnis (füllt das ausführende LLM)', 'status:', 'ergebnis_datei:', 'notizen:', '');
+    return { name: t + '-' + slug(cleanTxt(c.text)) + '.md', data: L.join('\n') };
+  });
+}
+/* Minimaler ZIP-Schreiber (nur Store, UTF-8-Namen) – keine externe Bibliothek nötig */
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const T = (() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[i] = c >>> 0; } return t; })();
+  const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = T[(c ^ u[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const parts = [], cdir = []; let off = 0, cdSize = 0;
+  files.forEach(f => {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true);           /* Signatur */
+    h.setUint16(4, 20, true);                    /* Version */
+    h.setUint16(6, 0x0800, true);                /* Flags: UTF-8-Namen */
+    h.setUint16(8, 0, true);                     /* Methode: Store */
+    h.setUint16(10, 0, true);                    /* Zeit */
+    h.setUint16(12, 0x5CF2, true);               /* Datum (fix) */
+    h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true);
+    h.setUint32(22, data.length, true);
+    h.setUint16(26, name.length, true);
+    h.setUint16(28, 0, true);
+    parts.push(h.buffer, name, data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true);
+    cd.setUint16(14, 0x5CF2, true);
+    cd.setUint32(16, crc, true); cd.setUint32(20, data.length, true); cd.setUint32(24, data.length, true);
+    cd.setUint16(28, name.length, true);
+    cd.setUint32(42, off, true);
+    cdir.push(cd.buffer, name);
+    cdSize += 46 + name.length;
+    off += 30 + name.length + data.length;
+  });
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob(parts.concat(cdir, [e.buffer]), { type: 'application/zip' });
+}
+
 document.getElementById('docsBtn').onclick = () => {
   if (previewState) return;
   const logoRow = collection.logo
@@ -1827,10 +1952,10 @@ document.getElementById('docsBtn').onclick = () => {
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dTermin">Terminprogramm (.xls)</button><button class="go" id="dKosten">Kostenvoranschlag (.xls)</button></div>'
     + '<label style="margin-top:12px">Architektur-Landkarte <span style="font-weight:400;text-transform:none">(ganze Wand als Bild &ndash; Pr&auml;sentation &amp; Druck)</span></label>'
     + '<div class="btnrow" style="margin-top:4px"><button class="go" id="dLandS">Landkarte (.svg)</button><button class="go" id="dLandP">Landkarte (.png)</button></div>'
-    + '<label style="margin-top:12px">Auftrag f&uuml;r Claude Code <span style="font-weight:400;text-transform:none">(Prozess als Arbeitsauftrag &ndash; Schritt f&uuml;r Schritt, zum Weitergeben)</span></label>'
+    + '<label style="margin-top:12px">Auftrag &amp; Tasks f&uuml;r LLMs <span style="font-weight:400;text-transform:none">(Auftrag = ein MD-Gesamtdokument &middot; Tasks = pro Schritt eine MD-Datei mit Frontmatter, f&uuml;rs Repo)</span></label>'
     + '<div class="btnrow" style="margin-top:4px"><select id="ccPhase" style="font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px"><option value="">Gesamter Prozess</option>'
     + state.phases.map((p, i) => '<option value="' + i + '">Phase ' + (i + 1) + ' &ndash; ' + esc(p.name.slice(0, 34)) + '</option>').join('')
-    + '</select><button class="go" id="dCC">Auftrag (.md)</button></div>'
+    + '</select><button class="go" id="dCC">Auftrag (.md)</button><button class="go" id="dTasks">Tasks (.zip)</button></div>'
     + '<label style="margin-top:12px">Eigene CI-Vorlagen (zentral gespeichert)</label>'
     + '<div id="tplList">' + (collection.templates || []).map((t, j) => {
         const ext = (t.name.split('.').pop() || '').toLowerCase();
@@ -1901,6 +2026,19 @@ document.getElementById('docsBtn').onclick = () => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
     try { await navigator.clipboard.writeText(md); sysMsg('📋 Claude-Code-Auftrag heruntergeladen UND in die Zwischenablage kopiert – direkt in eine Code-Sitzung einfügen.', true); }
     catch (e) { sysMsg('📋 Claude-Code-Auftrag heruntergeladen (' + name + ').', true); }
+    warnIfNeeded();
+  };
+  document.getElementById('dTasks').onclick = () => {
+    const v = document.getElementById('ccPhase').value;
+    const sel = v === '' ? null : +v;
+    const files = buildTasks(sel);
+    if (!files.length) { sysMsg('Keine Schritte auf der Handlungsebene – nichts zu exportieren.', true); return; }
+    const blob = makeZip(files.map(f => ({ name: 'tasks/' + f.name, data: f.data })));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = ('tasks - ' + boardName() + (sel === null ? '' : ' - Phase ' + (sel + 1))).replace(/[\\/:*?"<>|]/g, '-') + '.zip';
+    a.click(); URL.revokeObjectURL(a.href);
+    sysMsg('📦 ' + files.length + ' Task-Datei(en) exportiert – Ordner «tasks/» ins GitHub-Repo legen. Die status.json erzeugt dann ein Skript im Repo (die Wand liest sie nur).', true);
     warnIfNeeded();
   };
   document.getElementById('dLandS').onclick = () => { downloadLandkarte('svg'); sysMsg('🗺️ Landkarte (SVG) erzeugt.', true); };
@@ -2104,7 +2242,42 @@ function gateOfPhase(i) {
   const l = phaseLeft(i), r = l + state.phases[i].w;
   return state.milestones.find(m => m.x > l + state.phases[i].w * 0.4 && m.x <= r + 40);
 }
-function openDash() { if (previewState) return; document.getElementById('dash').style.display = 'block'; renderDash(); }
+/* ---- Pflichtenheft F5/D2: Steuerung & status.json aus GitHub (nur lesen) ---- */
+let ghStatus = null, ghStatusErr = '';
+async function fetchGhStatus() {
+  const url = (state.statusUrl || '').trim();
+  if (!url) { ghStatus = null; ghStatusErr = ''; return; }
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    ghStatus = await r.json(); ghStatusErr = '';
+  } catch (e) { ghStatus = null; ghStatusErr = e.message; }
+  if (document.getElementById('dash').style.display === 'block') renderDash();
+}
+function nextGate() {
+  let from = state.phases.length;
+  for (let i = 0; i < state.phases.length; i++) {
+    const t = tasksOfPhase(i);
+    if (!t.length || t.some(c => c.status !== 'erledigt')) { from = i; break; }
+  }
+  for (let i = from; i < state.phases.length; i++) {
+    const g = gateOfPhase(i);
+    if (g) return { label: g.label.split(/\s[–-]\sKriterien/)[0], phase: i };
+  }
+  return null;
+}
+function wartetAufDich() {
+  const out = [];
+  state.postits.forEach(c => {
+    if ((c.status || 'offen') === 'erledigt') return;
+    const typ = taskTyp(c);
+    if (typ === 'freigabe') out.push({ c, art: 'Freigabe' });
+    else if (typ === 'input') out.push({ c, art: 'Input' });
+  });
+  (ghStatus && Array.isArray(ghStatus.wartet_auf_input) ? ghStatus.wartet_auf_input : []).forEach(t => out.push({ txt: String(t), art: 'Input (Repo)' }));
+  return out;
+}
+function openDash() { if (previewState) return; document.getElementById('dash').style.display = 'block'; renderDash(); fetchGhStatus(); }
 function closeDash() { document.getElementById('dash').style.display = 'none'; }
 document.getElementById('dashBtn').onclick = openDash;
 document.getElementById('dashClose').onclick = closeDash;
@@ -2128,6 +2301,54 @@ function renderDash() {
     + '<div class="tile"><div class="tl">Risiken / Reflexion</div><div class="tv">' + nRisk + '</div><div class="ts">Karten auf der Reflexionsebene</div></div>'
     + '<div class="tile"><div class="tl">Gesamtziel</div><div class="ts" style="margin-top:4px">' + esc((state.goal||'– noch nicht definiert –').slice(0,160)) + '</div></div>'
     + '</div>';
+
+  /* F5: Steuerung – nächstes Tor, «wartet auf dich» (max. 3), Rest in Warteschlange */
+  const ng = nextGate();
+  const wd = wartetAufDich();
+  h += '<div class="dash-sec"><h3>Steuerung <span style="font-weight:400;color:var(--muted);font-size:11px">autonom bis zum n&auml;chsten Tor</span></h3>'
+    + '<div style="font-size:13px;margin:4px 0"><b>N&auml;chstes Entscheid-Tor:</b> '
+    + (ghStatus && ghStatus.naechster_entscheid ? esc(String(ghStatus.naechster_entscheid))
+      : ng ? '&#9670; ' + esc(ng.label.slice(0, 90)) + ' (Ende Phase ' + (ng.phase + 1) + ')' : '&ndash; keines definiert &ndash;') + '</div>';
+  if (wd.length) {
+    h += '<div style="font-size:13px;margin:6px 0 2px"><b>Wartet auf dich</b> (' + wd.length + '):</div><ul style="margin:2px 0 4px 18px;padding:0">';
+    wd.slice(0, 3).forEach(x => {
+      h += '<li style="font-size:12.5px;margin:2px 0"><span style="background:#f7e8c5;border-radius:8px;padding:0 7px;font-size:11px;font-weight:700">' + x.art + '</span> '
+        + esc(x.c ? cleanTxt(x.c.text).slice(0, 90) : x.txt.slice(0, 90)) + '</li>';
+    });
+    h += '</ul>';
+    if (wd.length > 3) h += '<div style="font-size:11px;color:var(--muted)">+ ' + (wd.length - 3) + ' weitere in der Warteschlange (bewusst max. 3 aufs Mal)</div>';
+  } else {
+    h += '<div style="font-size:12px;color:var(--muted)">Nichts wartet auf dich &ndash; alles l&auml;uft oder ist erledigt.</div>';
+  }
+  h += '</div>';
+
+  /* D2: status.json aus GitHub – Raw-URL, Polling beim Öffnen + Refresh-Knopf */
+  h += '<div class="dash-sec"><h3>Projekt-Status aus GitHub (status.json) <span style="font-weight:400;color:var(--muted);font-size:11px">die Wand liest nur &ndash; sie schreibt nichts</span></h3>'
+    + '<div style="display:flex;gap:6px;margin:4px 0"><input type="text" id="ghUrl" value="' + esc(state.statusUrl || '') + '" placeholder="https://raw.githubusercontent.com/&hellip;/status.json" style="flex:1;font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">'
+    + '<button id="ghRefresh" style="font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:0;border-radius:6px;background:var(--accent);color:#fff;padding:6px 12px">&#8635; Aktualisieren</button></div>';
+  if (ghStatusErr && (state.statusUrl || '').trim()) {
+    h += '<div style="font-size:12px;color:#a33">Konnte status.json nicht laden: ' + esc(ghStatusErr) + '</div>';
+  }
+  if (ghStatus) {
+    h += '<div style="font-size:12px;color:var(--muted)">Projekt: ' + esc(String(ghStatus.projekt || '–')) + ' &middot; Stand: ' + esc(String(ghStatus.stand || '–')) + '</div>';
+    const ms = ghStatus.meilensteine || {};
+    const mk = Object.keys(ms);
+    if (mk.length) h += '<div style="margin:6px 0">' + mk.map(k =>
+      '<span style="display:inline-block;margin:2px 4px 2px 0;border-radius:9px;padding:2px 9px;font-size:11.5px;font-weight:700;'
+      + (String(ms[k]) === 'erreicht' ? 'background:#dff0e2;color:#2f8a4c' : 'background:#eef1f5;color:#666')
+      + '">' + esc(k) + ': ' + esc(String(ms[k])) + '</span>').join('') + '</div>';
+    if (Array.isArray(ghStatus.phasen) && ghStatus.phasen.length) {
+      h += '<table class="ph-tab"><tr><th>Phase</th><th>erledigt</th><th>offen</th><th>blockiert</th></tr>';
+      ghStatus.phasen.forEach(p => {
+        h += '<tr><td>' + esc(String(p.nr != null ? p.nr : '')) + '</td><td>' + (+p.erledigt || 0) + '</td><td>' + (+p.offen || 0) + '</td>'
+          + '<td' + ((+p.blockiert || 0) ? ' style="color:#a33;font-weight:700"' : '') + '>' + (+p.blockiert || 0) + '</td></tr>';
+      });
+      h += '</table>';
+    }
+  } else if (!(state.statusUrl || '').trim()) {
+    h += '<div style="font-size:12px;color:var(--muted)">Raw-URL der status.json eintragen (&ouml;ffentliches Repo, kein Token n&ouml;tig). Wird beim &Ouml;ffnen des Dashboards und per Knopf gelesen. Enth&auml;lt nur Task-Titel und Status, nie Inhalte.</div>';
+  }
+  h += '</div>';
 
   const todos = [];
   state.postits.forEach(c => (Array.isArray(c.todos) ? c.todos : []).forEach((t, j) => todos.push({ c, t, j })));
@@ -2180,6 +2401,10 @@ function renderDash() {
   body.innerHTML = h;
   const f = document.getElementById('todoWerFilter');
   if (f) f.onchange = () => { todoWerFilter = f.value; renderDash(); };
+  const gu = document.getElementById('ghUrl');
+  if (gu) gu.onchange = () => { state.statusUrl = gu.value.trim(); save(); fetchGhStatus(); };
+  const gr = document.getElementById('ghRefresh');
+  if (gr) gr.onclick = () => fetchGhStatus();
 }
 document.getElementById('dashBody').addEventListener('click', e => {
   const tdot = e.target.closest('[data-tcid]');
