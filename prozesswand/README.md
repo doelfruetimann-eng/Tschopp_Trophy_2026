@@ -1,5 +1,9 @@
 # OSTO/SYMA Prozesswand
 
+> **⚠️ UMGEZOGEN:** Die Prozesswand wird seit Juli 2026 im eigenen Repository
+> `doelfruetimann-eng/doelfruetimann-eng-prozesswand` weiterentwickelt (Branch main).
+> Dieser Ordner hier ist nur noch ein Archiv-Stand (V35) und wird nicht mehr gepflegt.
+
 Digitale Projekt-Moderationswand nach OSTO/SYMA-Systematik (Systems Engineering)
 mit Benutzerkonten, Cloud-Speicherung und KI-Agenten-Schwarm.
 
